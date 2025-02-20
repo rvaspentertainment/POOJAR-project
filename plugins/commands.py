@@ -104,11 +104,26 @@ async def collect_images(bot, message):
 async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
         await query.message.delete()
+
+
+
     elif callback_query.data == "add_more_image":
         await callback_query.message.reply_text(
-            "Please send more images now. When you're ready, click 'Create PDF'."
+            "Please send more images now.\nWhen you're ready, click 'Create PDF'."
         )
-
+        # Waiting for more images
+        while True:
+            new_message = await bot.listen(callback_query.message.chat.id, timeout=60)
+            if new_message.photo or (new_message.document and new_message.document.mime_type in ["image/jpeg", "image/png"]):
+                file_path = await new_message.download(folder=IMAGE_FOLDER)
+                user_images[user_id].append(file_path)
+                await callback_query.message.reply_text(
+                    f"Image added! Now you have {len(user_images[user_id])} image(s).\n"
+                    "Send more images or click 'Create PDF'."
+                )
+            else:
+                await callback_query.message.reply_text("Only images are allowed. Please send a valid image.")
+    
     elif callback_query.data == "create_pdf":
         if user_id not in user_images or not user_images[user_id]:
             await callback_query.message.reply_text("No images available to create a PDF.")
