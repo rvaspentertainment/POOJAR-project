@@ -22,6 +22,7 @@ from urllib.parse import quote_plus
 import os
 from PIL import Image
 from fpdf import FPDF
+import img2pdf
 from io import BytesIO
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
@@ -99,6 +100,9 @@ async def collect_images(bot, message):
 
     
 
+
+
+
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -107,31 +111,24 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await query.message.delete()
 
     elif query.data == "create_pdf":
-        # Check if the user has any images
+        # Check if user has images
         if user_id not in user_images or len(user_images[user_id]) == 0:
             await query.answer("You have no images to create a PDF.", show_alert=True)
             return
 
         try:
-            # Create PDF object
-            pdf = FPDF()
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.set_font("Arial", size=12)
+            # Convert images to a PDF using img2pdf
+            pdf_bytes = img2pdf.convert(user_images[user_id])
 
-            for index, file_path in enumerate(user_images[user_id]):
-                if os.path.exists(file_path):
-                    pdf.add_page()
-                    pdf.image(file_path, x=10, y=10, w=180)
-
-            # Save PDF to a BytesIO object
-            pdf_output = BytesIO()
-            pdf.output(pdf_output, 'F')  # 'F' to output to the file object
+            # Save to BytesIO
+            pdf_output = BytesIO(pdf_bytes)
             pdf_output.seek(0)
 
             # Send the PDF to the user
             await client.send_document(
                 chat_id=user_id,
                 document=pdf_output,
+                file_name="converted.pdf",
                 caption="Here is your PDF with the images you uploaded!"
             )
 
@@ -146,4 +143,4 @@ async def cb_handler(client: Client, query: CallbackQuery):
             await query.answer("Your PDF has been created and images have been deleted.", show_alert=True)
 
         except Exception as e:
-            await query.answer(f"An error occurred while creating the PDF: {e}", show_alert=True)
+            await query.answer(f"An error occurred while creating the PDF: {str(e)}", show_alert=True)
