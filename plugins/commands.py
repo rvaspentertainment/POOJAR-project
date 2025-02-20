@@ -63,7 +63,6 @@ from PIL import Image
 
 # Temporary storage for images
 IMAGE_FOLDER = {}
-os.makedirs(IMAGE_FOLDER, exist_ok=True)
 
 # Dictionary to store images by user
 user_images = {}
