@@ -56,6 +56,16 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply(hi)
 
+@Client.on_message(filters.private & filters.text & filters.incoming)
+async def pm_text(bot, message):
+    try:
+        
+        await auto_filter(bot, message)  # Pass the original message
+        
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+
+
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
