@@ -98,7 +98,7 @@ async def collect_images(bot, message):
         )
         
         # Store the reference to the latest message with a button
-        last_message[user_id] = sent_message
+        last_message[user_id].append(sent_message)
                  
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
