@@ -85,12 +85,7 @@ async def collect_images(bot, message):
         user_images[user_id].append(file_path)
 
         # Delete the old "Create PDF" button message if exists
-        if user_id in last_message:
-            try:
-                await last_message[user_id].delete()
-            except Exception as e:
-                print(f"Error deleting old button message: {e}")
-
+        
         # Send a new message with the "Create PDF" button
         buttons = InlineKeyboardMarkup([
             [InlineKeyboardButton("Create PDF", callback_data="create_pdf")]
@@ -115,7 +110,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     if query.data == "create_pdf":
         # Edit the message to remove the button and show progress
-        await query.message.edit_text("Creating your PDF, please wait...")
+        msg1 = await query.message.edit_text("Creating your PDF, please wait...")
 
         # Check if user has images
         if user_id not in user_images or len(user_images[user_id]) == 0:
@@ -142,6 +137,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pdf_output = BytesIO(pdf_bytes)
             pdf_output.seek(0)
 
+            await msg1.delete()
+            await response.delete()
             # Send the PDF to the user
             await client.send_document(
                 chat_id=user_id,
@@ -161,10 +158,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 del last_message[user_id]
 
             # Send a confirmation message
-            await client.send_message(
-                chat_id=user_id,
-                text="Your PDF has been created successfully! All images and buttons have been cleared."
-            )
+            
 
             await query.answer("Your PDF has been created.", show_alert=True)
 
