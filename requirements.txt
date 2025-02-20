@@ -21,3 +21,4 @@ pillow
 pyrogram
 tgcrypto
 fpdf
+img2pdf
