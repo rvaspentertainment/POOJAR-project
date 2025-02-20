@@ -68,7 +68,12 @@ os.makedirs(IMAGE_FOLDER, exist_ok=True)
 # Dictionary to store images by user
 user_images = {}
 
-@Client.on_message(filters.private & (filters.photo | filters.document.mime_type("image/jpeg") | filters.document.mime_type("image/png")) & filters.incoming)
+@Client.on_message(
+    filters.private & 
+    (filters.photo | 
+     (filters.document & filters.regex(r"\.(jpg|jpeg|png)$", flags=2))) & 
+    filters.incoming
+)
 async def collect_images(bot, message):
     try:
         user_id = message.from_user.id
