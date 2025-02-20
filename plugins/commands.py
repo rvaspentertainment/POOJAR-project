@@ -83,14 +83,15 @@ async def collect_images(bot, message):
         # Reply with options to add more images or create a PDF
         buttons = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("Add More Image", callback_data="add_more_image"),
-                InlineKeyboardButton("Create PDF", callback_data="create_pdf")
+                
+                InlineKeyboardButton("Create PDF", callback_data="create_pdf"),
+                InlineKeyboardButton("Cancel", callback_data="cancel")
             ]
         ])
         
         await message.reply_text(
             f"Image added! You have {len(user_images[user_id])} image(s) ready.\n\n"
-            "You can either add more images or create a PDF.",
+            "You can either add more images or create a PDF.", 
             reply_markup=buttons
         )
                  
@@ -107,8 +108,14 @@ async def collect_images(bot, message):
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
 
-    if query.data == "close_data":
-        await query.message.delete()
+    if query.data == "cancel":
+        for file_path in user_images[user_id]:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                await query.message.delete()
+            else:
+                await query.message.delete()
+
 
     elif query.data == "create_pdf":
         # Check if user has images
