@@ -84,8 +84,7 @@ async def collect_images(bot, message):
         buttons = InlineKeyboardMarkup([
             [
                 
-                InlineKeyboardButton("Create PDF", callback_data="create_pdf"),
-                InlineKeyboardButton("Cancel", callback_data="cancel")
+                InlineKeyboardButton("Create PDF", callback_data="create_pdf")
             ]
         ])
         
@@ -109,12 +108,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
 
     if query.data == "cancel":
-        for file_path in user_images[user_id]:
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                await query.message.delete()
-            else:
-                await query.message.delete()
+        await query.message.delete()
 
 
     elif query.data == "create_pdf":
