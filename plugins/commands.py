@@ -19,6 +19,10 @@ import re
 import json
 import base64
 from urllib.parse import quote_plus
+import os
+from PIL import Image
+from fpdf import FPDF
+from io import BytesIO
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
 
@@ -56,15 +60,7 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply(hi)
 
-import os
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from PIL import Image
 
-# Temporary storage for images
-
-
-# Dictionary to store images by user
 user_images = {}
 
 @Client.on_message(
@@ -101,58 +97,51 @@ async def collect_images(bot, message):
         await message.reply_text(f"An error occurred: {e}")
 
 
-
-
-
+    
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
+    user_id = query.from_user.id
+
     if query.data == "close_data":
         await query.message.delete()
 
-
-
-    elif callback_query.data == "add_more_image":
-        await callback_query.message.reply_text(
-            "Please send more images now.\nWhen you're ready, click 'Create PDF'."
-        )
-        # Waiting for more images
-        while True:
-            new_message = await bot.listen(callback_query.message.chat.id, timeout=60)
-            if new_message.photo or (new_message.document and new_message.document.mime_type in ["image/jpeg", "image/png"]):
-                file_path = await new_message.download(folder=IMAGE_FOLDER)
-                user_images[user_id].append(file_path)
-                await callback_query.message.reply_text(
-                    f"Image added! Now you have {len(user_images[user_id])} image(s).\n"
-                    "Send more images or click 'Create PDF'."
-                )
-            else:
-                await callback_query.message.reply_text("Only images are allowed. Please send a valid image.")
-    
-    elif callback_query.data == "create_pdf":
-        if user_id not in user_images or not user_images[user_id]:
-            await callback_query.message.reply_text("No images available to create a PDF.")
+    elif query.data == "create_pdf":
+        # Check if the user has any images
+        if user_id not in user_images or len(user_images[user_id]) == 0:
+            await query.answer("You have no images to create a PDF.", show_alert=True)
             return
 
         try:
-            pdf_path = os.path.join(IMAGE_FOLDER, f"{user_id}_output.pdf")
-            image_list = []
+            # Create PDF object
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.set_font("Arial", size=12)
 
-            # Open images and convert to RGB mode for PDF
-            for image_path in user_images[user_id]:
-                img = Image.open(image_path).convert("RGB")
-                image_list.append(img)
+            for file_path in user_images[user_id]:
+                pdf.add_page()
+                pdf.image(file_path, x=10, y=10, w=180)
 
-            # Save as PDF if there are images
-            if image_list:
-                image_list[0].save(pdf_path, save_all=True, append_images=image_list[1:])
-                await callback_query.message.reply_document(pdf_path)
-                await callback_query.message.reply_text("PDF created successfully!")
+            # Save PDF to a BytesIO object
+            pdf_output = BytesIO()
+            pdf.output(pdf_output)
+            pdf_output.seek(0)
 
-                # Clean up
-                for img_path in user_images[user_id]:
-                    os.remove(img_path)
-                os.remove(pdf_path)
-                user_images[user_id] = []
+            # Send the PDF to the user
+            await client.send_document(
+                chat_id=user_id,
+                document=pdf_output,
+                caption="Here is your PDF with the images you uploaded!"
+            )
+
+            # Delete user images from the server
+            for file_path in user_images[user_id]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+
+            # Clear the image list for the user
+            user_images[user_id] = []
+
+            await query.answer("Your PDF has been created and images have been deleted.", show_alert=True)
 
         except Exception as e:
-            await callback_query.message.reply_text(f"Failed to create PDF: {e}")
+            await query.answer(f"An error occurred while creating the PDF: {e}", show_alert=True)
