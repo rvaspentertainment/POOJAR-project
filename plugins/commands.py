@@ -61,12 +61,6 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply("hi")
 
-import os
-import img2pdf
-from io import BytesIO
-from pyrogram import Client, filters
-from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-
 user_images = {}
 last_message = {}
 
@@ -79,7 +73,7 @@ last_message = {}
 async def collect_images(bot, message):
     try:
         user_id = message.from_user.id
-        
+
         # Initialize user storage if not present
         if user_id not in user_images:
             user_images[user_id] = []
@@ -87,22 +81,15 @@ async def collect_images(bot, message):
         # Download the new image
         file_path = await message.download()
 
-        # Optionally delete old images if only the latest should be kept
-        if user_images[user_id]:
-            # Delete the previous image file from storage
-            old_file = user_images[user_id].pop(0)
-            if os.path.exists(old_file):
-                os.remove(old_file)
-
-        # Store the new image path
+        # Append the new image without deleting previous images
         user_images[user_id].append(file_path)
 
         # Delete the old "Create PDF" button message if exists
         if user_id in last_message:
             try:
                 await last_message[user_id].delete()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error deleting old button message: {e}")
 
         # Send a new message with the "Create PDF" button
         buttons = InlineKeyboardMarkup([
@@ -127,7 +114,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
 
     if query.data == "create_pdf":
-        # Remove the button by editing the message
+        # Edit the message to remove the button and show progress
         await query.message.edit_text("Creating your PDF, please wait...")
 
         # Check if user has images
@@ -136,6 +123,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
             return
 
         try:
+            # Ask the user for the PDF file name (without extension)
+            response = await client.ask(user_id, "**Send the PDF name (without extension):**")
+            pdf_name = response.text if response.text else "converted"
+
+            # Sanitize the file name
+            pdf_name = "".join(char for char in pdf_name if char.isalnum() or char in " _-").strip()
+            if not pdf_name:
+                pdf_name = "converted"
+
+            # Add the .pdf extension
+            pdf_file_name = f"{pdf_name}.pdf"
+
             # Convert images to a PDF using img2pdf
             pdf_bytes = img2pdf.convert(user_images[user_id])
 
@@ -147,8 +146,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             await client.send_document(
                 chat_id=user_id,
                 document=pdf_output,
-                file_name="converted.pdf",
-                caption="Here is your PDF with the image you uploaded!"
+                file_name=pdf_file_name,
+                caption=f"Here is your PDF: **{pdf_file_name}**"
             )
 
             # Delete user images from the server
@@ -156,14 +155,18 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-            # Clear the image list for the user
-            user_images[user_id] = []
-
-            # Clear the last message reference
+            # Clear the image list and last message for the user
+            user_images[user_id].clear()
             if user_id in last_message:
                 del last_message[user_id]
 
-            await query.answer("Your PDF has been created and images have been deleted.", show_alert=True)
+            # Send a confirmation message
+            await client.send_message(
+                chat_id=user_id,
+                text="Your PDF has been created successfully! All images and buttons have been cleared."
+            )
+
+            await query.answer("Your PDF has been created.", show_alert=True)
 
         except Exception as e:
             await query.answer(f"An error occurred while creating the PDF: {str(e)}", show_alert=True)
