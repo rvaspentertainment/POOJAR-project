@@ -24,6 +24,7 @@ from PIL import Image
 from fpdf import FPDF
 import img2pdf
 from io import BytesIO
+from pypdf import PdfReader, PdfWriter
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,53 @@ async def collect_images(bot, message):
         await message.reply_text(f"An error occurred: {e}")
 
 
+
+user_pdfs = {}
+last_message = {}
+
+# Watermark settings
+WATERMARK_TEXT = "poojar project"
+WATERMARK_POSITION = "bottom_right"
+
+@Client.on_message(
+    filters.private & 
+    filters.document & 
+    filters.regex(r"\.pdf$", flags=2) & 
+    filters.incoming
+)
+async def collect_pdfs(bot, message):
+    try:
+        user_id = message.from_user.id
+
+        
+        # Download the PDF file
+        file_path = await message.download()
+        user_pdfs[user_id] = file_path
+
+        # Send options for PDF editing
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Add Watermark", callback_data="add_watermark")],
+            [InlineKeyboardButton("Protect with Password", callback_data="protect_pdf")],
+            [InlineKeyboardButton("Extract Images (JPEG)", callback_data="extract_jpeg")],
+            [InlineKeyboardButton("Extract Images (PNG)", callback_data="extract_png")]
+        ])
+        
+        await message.reply_text(
+            "PDF received! Choose an action to perform on this PDF:",
+            reply_markup=buttons
+        )
+
+        
+
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+
+
+
+
+    
+
+
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -164,3 +212,132 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
         except Exception as e:
             await query.answer(f"An error occurred while creating the PDF: {str(e)}", show_alert=True)
+
+    elif query.data == "add_watermark":
+        await query.message.edit_text("Adding watermark to your PDF...")
+        
+        try:
+            # Apply watermark to each page
+            watermarked_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
+            reader = PdfReader(pdf_path)
+            writer = PdfWriter()
+
+            for page in reader.pages:
+                page.merge_page(create_watermark_page(page))
+                writer.add_page(page)
+
+            with open(watermarked_path, "wb") as f:
+                writer.write(f)
+
+            await client.send_document(
+                chat_id=user_id,
+                document=watermarked_path,
+                file_name="watermarked.pdf",
+                caption="Here is your watermarked PDF!"
+            )
+
+            os.remove(watermarked_path)
+
+        except Exception as e:
+            await query.answer(f"Failed to add watermark: {e}", show_alert=True)
+
+    elif query.data == "protect_pdf":
+        await query.message.edit_text("Send the password to protect the PDF:")
+        
+        response = await client.ask(user_id, "**Send the password for the PDF:**")
+        pdf_password = response.text
+
+        try:
+            # Protect PDF with password
+            protected_path = f"{os.path.splitext(pdf_path)[0]}_protected.pdf"
+            reader = PdfReader(pdf_path)
+            writer = PdfWriter()
+
+            for page in reader.pages:
+                writer.add_page(page)
+
+            writer.encrypt(pdf_password)
+
+            with open(protected_path, "wb") as f:
+                writer.write(f)
+
+            await client.send_document(
+                chat_id=user_id,
+                document=protected_path,
+                file_name="protected.pdf",
+                caption="Here is your password-protected PDF!"
+            )
+
+            os.remove(protected_path)
+
+        except Exception as e:
+            await query.answer(f"Failed to protect PDF: {e}", show_alert=True)
+
+    elif query.data in ["extract_jpeg", "extract_png"]:
+        await query.message.edit_text("Extracting images from your PDF...")
+
+        try:
+            image_format = "JPEG" if query.data == "extract_jpeg" else "PNG"
+            reader = PdfReader(pdf_path)
+            images = []
+
+            for page_number, page in enumerate(reader.pages, start=1):
+                for image_index, image_file in enumerate(page.images, start=1):
+                    image_data = image_file.data
+                    image_name = f"page_{page_number}_img_{image_index}.{image_format.lower()}"
+                    image_path = os.path.join("/tmp", image_name)
+
+                    with open(image_path, "wb") as img_file:
+                        img_file.write(image_data)
+
+                    images.append(image_path)
+
+            if images:
+                for image_path in images:
+                    await client.send_document(
+                        chat_id=user_id,
+                        document=image_path,
+                        file_name=os.path.basename(image_path)
+                    )
+                    os.remove(image_path)
+            else:
+                await query.answer("No images found in the PDF.", show_alert=True)
+
+        except Exception as e:
+            await query.answer(f"Failed to extract images: {e}", show_alert=True)
+
+    elif query.data == "delete_pdf":
+        await query.message.edit_text("Deleting your PDF...")
+
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        user_pdfs[user_id] = None
+
+        await query.answer("Your PDF has been deleted.", show_alert=True)
+
+
+
+
+def create_watermark_page(page):
+    """Creates a watermark page for merging."""
+    from PyPDF2.pdf import PageObject
+    watermark = PageObject.create_blank_page(width=page.mediaBox.getWidth(), height=page.mediaBox.getHeight())
+
+    # Adding simple text as watermark
+    from reportlab.pdfgen import canvas
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.lib.pagesizes import letter
+
+    c = canvas.Canvas("watermark.pdf", pagesize=letter)
+    c.setFont("Helvetica", 20)
+    c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
+    c.drawString(100, 100, WATERMARK_TEXT)
+    c.save()
+
+    watermark.merge_page(PageObject.create_from_file("watermark.pdf"))
+    os.remove("watermark.pdf")
+    
+    return watermark
+
+
