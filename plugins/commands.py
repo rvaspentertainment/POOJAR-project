@@ -62,7 +62,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PIL import Image
 
 # Temporary storage for images
-IMAGE_FOLDER = {}
+
 
 # Dictionary to store images by user
 user_images = {}
@@ -80,7 +80,7 @@ async def collect_images(bot, message):
             user_images[user_id] = []
 
         # Downloading the image
-        file_path = await message.download(folder=IMAGE_FOLDER)
+        file_path = await message.download()
         user_images[user_id].append(file_path)
 
         # Reply with options to add more images or create a PDF
