@@ -56,6 +56,47 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply(hi)
 
+import os
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from PIL import Image
+
+# Temporary storage for images
+IMAGE_FOLDER = "downloads"
+os.makedirs(IMAGE_FOLDER, exist_ok=True)
+
+# Dictionary to store images by user
+user_images = {}
+
+@Client.on_message(filters.private & (filters.photo | filters.document.mime_type("image/jpeg") | filters.document.mime_type("image/png")) & filters.incoming)
+async def collect_images(bot, message):
+    try:
+        user_id = message.from_user.id
+        if user_id not in user_images:
+            user_images[user_id] = []
+
+        # Downloading the image
+        file_path = await message.download(folder=IMAGE_FOLDER)
+        user_images[user_id].append(file_path)
+
+        # Reply with options to add more images or create a PDF
+        buttons = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Add More Image", callback_data="add_more_image"),
+                InlineKeyboardButton("Create PDF", callback_data="create_pdf")
+            ]
+        ])
+        
+        await message.reply_text(
+            f"Image added! You have {len(user_images[user_id])} image(s) ready.\n\n"
+            "You can either add more images or create a PDF.",
+            reply_markup=buttons
+        )
+                 
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+
+
 
 
 
@@ -63,4 +104,36 @@ async def start(client, message):
 async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
         await query.message.delete()
-    
+    elif callback_query.data == "add_more_image":
+        await callback_query.message.reply_text(
+            "Please send more images now. When you're ready, click 'Create PDF'."
+        )
+
+    elif callback_query.data == "create_pdf":
+        if user_id not in user_images or not user_images[user_id]:
+            await callback_query.message.reply_text("No images available to create a PDF.")
+            return
+
+        try:
+            pdf_path = os.path.join(IMAGE_FOLDER, f"{user_id}_output.pdf")
+            image_list = []
+
+            # Open images and convert to RGB mode for PDF
+            for image_path in user_images[user_id]:
+                img = Image.open(image_path).convert("RGB")
+                image_list.append(img)
+
+            # Save as PDF if there are images
+            if image_list:
+                image_list[0].save(pdf_path, save_all=True, append_images=image_list[1:])
+                await callback_query.message.reply_document(pdf_path)
+                await callback_query.message.reply_text("PDF created successfully!")
+
+                # Clean up
+                for img_path in user_images[user_id]:
+                    os.remove(img_path)
+                os.remove(pdf_path)
+                user_images[user_id] = []
+
+        except Exception as e:
+            await callback_query.message.reply_text(f"Failed to create PDF: {e}")
