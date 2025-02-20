@@ -54,8 +54,8 @@ def formate_file_name(file_name):
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
-    
-@
+    await message.reply(hi)
+
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
