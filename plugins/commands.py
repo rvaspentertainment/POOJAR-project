@@ -98,6 +98,7 @@ async def collect_images(bot, message):
 
 
     
+
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -117,13 +118,14 @@ async def cb_handler(client: Client, query: CallbackQuery):
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.set_font("Arial", size=12)
 
-            for file_path in user_images[user_id]:
-                pdf.add_page()
-                pdf.image(file_path, x=10, y=10, w=180)
+            for index, file_path in enumerate(user_images[user_id]):
+                if os.path.exists(file_path):
+                    pdf.add_page()
+                    pdf.image(file_path, x=10, y=10, w=180)
 
             # Save PDF to a BytesIO object
             pdf_output = BytesIO()
-            pdf.output(pdf_output)
+            pdf.output(pdf_output, 'F')  # 'F' to output to the file object
             pdf_output.seek(0)
 
             # Send the PDF to the user
