@@ -347,6 +347,7 @@ def create_watermark_page(page):
         watermark_page = watermark_reader.pages[0]  # Correctly access the page as a PageObject
 
     # Remove the temporary file after reading
-    os.remove(watermark_filename)
+    
     
     return watermark_page
+    os.remove(watermark_filename)
