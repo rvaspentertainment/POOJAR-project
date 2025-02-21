@@ -230,12 +230,18 @@ async def extract_images(client, query, user_id, image_format):
                     document=img_bytes,
                     file_name=f"{pdf_name}_page_{idx+1}.{image_format}"
                 )
+                clear_user_data(user_id, "pdfs")
 
     except Exception as e:
         await query.answer(f"Error during extraction: {str(e)}", show_alert=True)
 
 
-### Watermarking PDFs ###
+import os
+from pypdf import PdfReader, PdfWriter
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
+### Watermarking Function ###
 async def watermark_pdf(client, query, user_id, position):
     await query.message.edit_text("Watermarking PDF, please wait...")
     response = await client.ask(user_id, "Send watermark text:")
@@ -245,11 +251,14 @@ async def watermark_pdf(client, query, user_id, position):
         reader = PdfReader(pdf_path)
         writer = PdfWriter()
 
-        watermark_pdf_path = "watermark.pdf"
+        watermark_pdf_path = ()
         create_watermark_pdf(watermark_pdf_path, watermark_text, position)
 
+        watermark_reader = PdfReader(watermark_pdf_path)
+        watermark_page = watermark_reader.pages[0]
+
         for page in reader.pages:
-            page.merge_page(PdfReader(watermark_pdf_path).pages[0])
+            page.merge_page(watermark_page)
             writer.add_page(page)
 
         output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
@@ -257,9 +266,9 @@ async def watermark_pdf(client, query, user_id, position):
             writer.write(f_out)
 
         await client.send_document(user_id, document=output_path)
+        clear_user_data(user_id, "pdfs")
         os.remove(output_path)
         os.remove(watermark_pdf_path)
-
 
 ### Generate Watermark PDF ###
 def create_watermark_pdf(file_path, text, position):
@@ -268,8 +277,12 @@ def create_watermark_pdf(file_path, text, position):
     c.setFont("Helvetica", 40)
     c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
 
-    pos = {"top": (width/2, height-50), "center": (width/2, height/2), "bottom": (width/2, 50)}
-    x, y = pos.get(position, (width/2, height/2))
+    pos = {
+        "top": (width / 2, height - 50),
+        "center": (width / 2, height / 2),
+        "bottom": (width / 2, 50)
+    }
+    x, y = pos.get(position, (width / 2, height / 2))
 
     c.saveState()
     c.translate(x, y)
