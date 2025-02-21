@@ -24,6 +24,10 @@ from PIL import Image
 from fpdf import FPDF
 import img2pdf
 from io import BytesIO
+from PyPDF2 import PdfReader, PageObject
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
 from pypdf import PdfReader, PdfWriter
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
@@ -319,26 +323,25 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
+
+
+WATERMARK_TEXT = "Sample Watermark"
+
 def create_watermark_page(page):
     """Creates a watermark page for merging."""
-    from PyPDF2.pdf import PageObject
-    watermark = PageObject.create_blank_page(width=page.mediaBox.getWidth(), height=page.mediaBox.getHeight())
-
-    # Adding simple text as watermark
-    from reportlab.pdfgen import canvas
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.lib.pagesizes import letter
-
-    c = canvas.Canvas("watermark.pdf", pagesize=letter)
+    # Create a temporary watermark PDF using ReportLab
+    watermark_filename = "watermark.pdf"
+    c = canvas.Canvas(watermark_filename, pagesize=(page.mediabox.width, page.mediabox.height))
     c.setFont("Helvetica", 20)
     c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
     c.drawString(100, 100, WATERMARK_TEXT)
     c.save()
 
-    watermark.merge_page(PageObject.create_from_file("watermark.pdf"))
-    os.remove("watermark.pdf")
+    # Read the watermark page using PyPDF2
+    with open(watermark_filename, "rb") as f:
+        watermark_reader = PdfReader(f)
+        watermark_page = watermark_reader.pages[0]
+
+    os.remove(watermark_filename)
     
-    return watermark
-
-
+    return watermark_page
