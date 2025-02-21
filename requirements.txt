@@ -23,4 +23,5 @@ tgcrypto
 fpdf
 img2pdf
 pypdf
-pypdf2
+PyPDF2
+reportlab
