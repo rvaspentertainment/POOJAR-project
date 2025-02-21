@@ -323,6 +323,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
+
+
 WATERMARK_TEXT = "Sample Watermark"
 
 def create_watermark_page(page):
@@ -335,13 +337,12 @@ def create_watermark_page(page):
     c.drawString(100, 100, WATERMARK_TEXT)
     c.save()
 
-    # Open and read the watermark file without closing prematurely
-    f = open(watermark_filename, "rb")
-    watermark_reader = PdfReader(f)
-    watermark_page = watermark_reader.pages[0]
+    # Read the watermark page before closing the file
+    with open(watermark_filename, "rb") as f:
+        watermark_reader = PdfReader(f)
+        watermark_page = watermark_reader.pages[0].extract_text()
 
-    # Close the file and remove it safely
-    f.close()
+    # Remove the temporary watermark file
     os.remove(watermark_filename)
     
     return watermark_page
