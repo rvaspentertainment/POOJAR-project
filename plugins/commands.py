@@ -366,8 +366,10 @@ def clear_user_data(user_id, data_type="all"):
         user_pdfs[user_id] = []
         
 
+import os
+from PyPDF2 import PdfReader, PdfWriter
+
 async def protect_pdf(client, query, user_id):
-    
     await query.message.edit_text("Preparing to protect your PDF...")
 
     if len(user_pdfs[user_id]) == 1:
@@ -377,7 +379,11 @@ async def protect_pdf(client, query, user_id):
             password = response.text or "Poojar Project"
 
             input_pdf_path = user_pdfs[user_id][0]
-            output_pdf_path = f"protected_{input_pdf_path}"
+            # Generate the output path properly
+            output_pdf_path = os.path.join(
+                os.path.dirname(input_pdf_path), 
+                f"protected_{os.path.basename(input_pdf_path)}"
+            )
 
             # Apply password protection
             writer = PdfWriter()
@@ -393,8 +399,8 @@ async def protect_pdf(client, query, user_id):
             
             await client.send_document(user_id, output_pdf_path, caption="Your password-protected PDF is ready!")
             clear_user_data(user_id, "pdfs")
-            os.remove(output_path)
-
+            
+            os.remove(output_pdf_path)  # Corrected variable name
 
         except Exception as e:
             await client.send_message(user_id, f"Failed to protect PDF: {e}")
