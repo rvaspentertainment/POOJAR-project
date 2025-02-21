@@ -25,3 +25,4 @@ img2pdf
 pypdf
 PyPDF2
 reportlab
+pdf2image
