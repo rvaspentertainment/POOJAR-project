@@ -277,3 +277,43 @@ def create_watermark_pdf(file_path, text, position):
     c.drawCentredString(0, 0, text)
     c.restoreState()
     c.save()
+
+async def select_watermark_position(client, query, user_id):
+    buttons = [
+        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
+        [InlineKeyboardButton("Center", callback_data="watermark_position_center")],
+        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")]
+    ]
+    await query.message.edit_text(
+        "Select where you want the watermark:",
+        reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+async def merge_pdfs(client, query, user_id):
+    await query.message.edit_text("Merging PDFs, please wait...")
+    merger = PdfMerger()
+
+    for pdf_path in user_pdfs.get(user_id, []):
+        merger.append(pdf_path)
+
+    output_path = "merged_output.pdf"
+    merger.write(output_path)
+    merger.close()
+
+    await client.send_document(user_id, document=output_path)
+    os.remove(output_path)
+
+
+# Clear user data utility
+def clear_user_data(user_id, data_type="all"):
+    if data_type in ("all", "images"):
+        for file_path in user_images.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_images[user_id] = []
+
+    if data_type in ("all", "pdfs"):
+        for file_path in user_pdfs.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_pdfs[user_id] = []
