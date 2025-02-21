@@ -246,7 +246,7 @@ async def watermark_pdf(client, query, user_id, position):
     await query.message.edit_text("Watermarking PDF, please wait...")
     try:
         response = await client.ask(user_id, "Send watermark text:")
-        watermark_text = response.text or "WATERMARK"
+        watermark_text = response.text or "Poojar Project"
 
         font_response = await client.ask(user_id, "Choose font style (Helvetica, Times-Roman, Courier):")
         font_style = font_response.text if font_response.text in ["Helvetica", "Times-Roman", "Courier"] else "Helvetica"
@@ -283,25 +283,38 @@ def create_watermark_pdf(file_path, text, position, font_style):
     try:
         c = canvas.Canvas(file_path, pagesize=letter)
         width, height = letter
-        c.setFont(font_style, 40)
-        c.setFillColor(Color(0.6, 0.6, 0.6, alpha=0.5))  # Semi-transparent grey
+        
+        # Set font size based on position for desired appearance
+        if position == "center":
+            font_size = 100  # Larger for center
+        else:
+            font_size = 20   # Smaller for top and bottom
+
+        c.setFont(font_style, font_size)
+        c.setFillColor(Color(0, 0, 0, alpha=0.8))  # Solid black with slight transparency
 
         pos = {
-            "top": (width / 2, height - 50),
+            "top": (width / 2, height - 30),
             "center": (width / 2, height / 2),
-            "bottom": (width / 2, 50)
+            "bottom": (width / 2, 30)
         }
         x, y = pos.get(position, (width / 2, height / 2))
 
         c.saveState()
-        c.translate(x, y)
-        c.rotate(45)
-        c.drawCentredString(0, 0, text)
+        if position == "center":
+            c.translate(x, y)
+            c.rotate(45)
+            c.drawCentredString(0, 0, text)
+        else:
+            c.setFont(font_style, 20)  # Ensure smaller size for top and bottom
+            c.setFillColor(Color(0, 0, 0, alpha=1))  # Solid black
+            c.drawCentredString(x, y, text)
+        
         c.restoreState()
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-
+        
 async def select_watermark_position(client, query, user_id):
     buttons = [
         [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
