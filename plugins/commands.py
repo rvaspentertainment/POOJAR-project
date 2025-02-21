@@ -122,7 +122,7 @@ async def collect_files(bot, message):
         if user_images[user_id]:
             buttons.append([InlineKeyboardButton("Create PDF", callback_data="create_pdf")])
         
-        if len(user_pdfs[user_id]) < 1:
+        if len(user_pdfs[user_id]) >= 1:
             buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
         
