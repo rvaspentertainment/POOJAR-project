@@ -155,6 +155,7 @@ async def collect_pdfs(bot, message):
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
+    pdf_path = user_pdfs.get(user_id)
 
     if query.data == "create_pdf":
         # Edit the message to remove the button and show progress
