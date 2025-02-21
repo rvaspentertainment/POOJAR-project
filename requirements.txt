@@ -26,3 +26,5 @@ pypdf
 PyPDF2
 reportlab
 pdf2image
+docx
+pptx
