@@ -66,18 +66,21 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply("hi")
 
-        
+
 import os
 from io import BytesIO
 import img2pdf
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
-from PIL import Image, ImageDraw, ImageFont
 from pdf2image import convert_from_path
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+from reportlab.lib.pagesizes import letter
 
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
-# Store images and PDFs separately
+# Initialize storage for images, PDFs, and last messages
 user_images = {}
 user_pdfs = {}
 last_message = {}
@@ -86,7 +89,8 @@ last_message = {}
 IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
 PDF_FORMATS = (".pdf",)
 
-# Handle both images and PDFs
+
+### Collect images and PDFs separately ###
 @Client.on_message(
     filters.private & 
     (filters.photo | 
@@ -139,7 +143,7 @@ async def collect_files(bot, message):
         await message.reply_text(f"An error occurred: {e}")
 
 
-# Handle button actions
+### Handle Button Actions ###
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
@@ -165,7 +169,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
         await merge_pdfs(client, query, user_id)
 
 
-# Create PDF from images
+### Create PDF from Images ###
 async def create_pdf(client, query, user_id):
     await query.message.edit_text("Creating your PDF, please wait...")
 
@@ -175,7 +179,7 @@ async def create_pdf(client, query, user_id):
         return
 
     try:
-        response = await client.ask(user_id, "**Send the PDF name (without extension):**")
+        response = await client.ask(user_id, "Send the PDF name (without extension):")
         pdf_name = "".join(char for char in response.text if char.isalnum() or char in " _-").strip()
         pdf_file_name = f"{pdf_name or 'converted'}.pdf"
 
@@ -196,7 +200,7 @@ async def create_pdf(client, query, user_id):
         await query.answer(f"Error while creating PDF: {str(e)}", show_alert=True)
 
 
-# Ask image format for extraction
+### Select Image Format for Extraction ###
 async def select_image_format(client, query, user_id):
     buttons = [
         [InlineKeyboardButton("JPG", callback_data="extract_format_jpg")],
@@ -208,13 +212,12 @@ async def select_image_format(client, query, user_id):
     )
 
 
-# Extract images from PDFs
+### Extract Images from PDF ###
 async def extract_images(client, query, user_id, image_format):
-    pdf_files = user_pdfs.get(user_id, [])
     await query.message.edit_text("Extracting images, please wait...")
 
     try:
-        for pdf_path in pdf_files:
+        for pdf_path in user_pdfs.get(user_id, []):
             images = convert_from_path(pdf_path, fmt=image_format, thread_count=4)
             pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
             for idx, img in enumerate(images):
@@ -232,20 +235,7 @@ async def extract_images(client, query, user_id, image_format):
         await query.answer(f"Error during extraction: {str(e)}", show_alert=True)
 
 
-# Watermark position selection
-async def select_watermark_position(client, query, user_id):
-    buttons = [
-        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
-        [InlineKeyboardButton("Center", callback_data="watermark_position_center")],
-        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")]
-    ]
-    await query.message.edit_text(
-        "Select where you want the watermark:",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
-
-
-# Apply watermark to PDFs
+### Watermarking PDFs ###
 async def watermark_pdf(client, query, user_id, position):
     await query.message.edit_text("Watermarking PDF, please wait...")
     response = await client.ask(user_id, "Send watermark text:")
@@ -255,43 +245,35 @@ async def watermark_pdf(client, query, user_id, position):
         reader = PdfReader(pdf_path)
         writer = PdfWriter()
 
+        watermark_pdf_path = "watermark.pdf"
+        create_watermark_pdf(watermark_pdf_path, watermark_text, position)
+
         for page in reader.pages:
+            page.merge_page(PdfReader(watermark_pdf_path).pages[0])
             writer.add_page(page)
 
-        output_path = f"{pdf_path}_watermarked.pdf"
+        output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
         with open(output_path, "wb") as f_out:
             writer.write(f_out)
 
         await client.send_document(user_id, document=output_path)
         os.remove(output_path)
+        os.remove(watermark_pdf_path)
 
 
-# Merge PDFs
-async def merge_pdfs(client, query, user_id):
-    await query.message.edit_text("Merging PDFs, please wait...")
-    merger = PdfMerger()
+### Generate Watermark PDF ###
+def create_watermark_pdf(file_path, text, position):
+    c = canvas.Canvas(file_path, pagesize=letter)
+    width, height = letter
+    c.setFont("Helvetica", 40)
+    c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
 
-    for pdf_path in user_pdfs.get(user_id, []):
-        merger.append(pdf_path)
+    pos = {"top": (width/2, height-50), "center": (width/2, height/2), "bottom": (width/2, 50)}
+    x, y = pos.get(position, (width/2, height/2))
 
-    output_path = "merged_output.pdf"
-    merger.write(output_path)
-    merger.close()
-
-    await client.send_document(user_id, document=output_path)
-    os.remove(output_path)
-
-
-# Clear user data utility
-def clear_user_data(user_id, data_type="all"):
-    if data_type in ("all", "images"):
-        for file_path in user_images.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_images[user_id] = []
-
-    if data_type in ("all", "pdfs"):
-        for file_path in user_pdfs.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_pdfs[user_id] = []
+    c.saveState()
+    c.translate(x, y)
+    c.rotate(45)
+    c.drawCentredString(0, 0, text)
+    c.restoreState()
+    c.save()
