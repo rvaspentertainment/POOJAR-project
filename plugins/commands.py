@@ -239,7 +239,6 @@ async def extract_images(client, query, user_id, image_format):
 import os
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 from reportlab.lib.colors import Color
 
 async def watermark_pdf(client, query, user_id, position):
@@ -252,15 +251,21 @@ async def watermark_pdf(client, query, user_id, position):
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
 
-            watermark_pdf_path = "watermark.pdf"
-            create_watermark_pdf(watermark_pdf_path, watermark_text, position)
+            for page_num, page in enumerate(reader.pages):
+                # Get page size
+                page_width = float(page.mediabox.width)
+                page_height = float(page.mediabox.height)
 
-            watermark_reader = PdfReader(watermark_pdf_path)
-            watermark_page = watermark_reader.pages[0]
+                watermark_pdf_path = f"watermark_{page_num}.pdf"
+                create_watermark_pdf(watermark_pdf_path, watermark_text, position, page_width, page_height)
 
-            for page in reader.pages:
+                watermark_reader = PdfReader(watermark_pdf_path)
+                watermark_page = watermark_reader.pages[0]
+
                 page.merge_page(watermark_page)
                 writer.add_page(page)
+
+                os.remove(watermark_pdf_path)
 
             output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
             with open(output_path, "wb") as f_out:
@@ -270,33 +275,30 @@ async def watermark_pdf(client, query, user_id, position):
             clear_user_data(user_id, "pdfs")
 
             os.remove(output_path)
-            os.remove(watermark_pdf_path)
         await query.message.edit_text("Watermarking completed!")
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
-### Generate Watermark PDF ###
-def create_watermark_pdf(file_path, text, position):
+### Generate Watermark PDF with dynamic sizing ###
+def create_watermark_pdf(file_path, text, position, page_width, page_height):
     try:
-        c = canvas.Canvas(file_path, pagesize=letter)
-        width, height = letter
+        c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
         
-        # Set font size based on position for desired appearance
+        # Adjust font size based on page dimensions
         if position == "center":
-            font_size = 100  # Larger for center watermark
+            font_size = min(page_width, page_height) * 0.1  # Proportional scaling
         else:
-            font_size = 20   # Smaller for top and bottom
+            font_size = min(page_width, page_height) * 0.03
 
         c.setFont("Helvetica-Bold", font_size)
-        # Set color with 50% transparency (lighter text)
-        c.setFillColor(Color(0, 0, 0, alpha=0.5))  # Black with 50% transparency
+        c.setFillColor(Color(0, 0, 0, alpha=0.5))  # 50% lighter
 
         pos = {
-            "top": (width / 2, height - 30),
-            "center": (width / 2, height / 2),
-            "bottom": (width / 2, 30)
+            "top": (page_width / 2, page_height - (font_size + 10)),
+            "center": (page_width / 2, page_height / 2),
+            "bottom": (page_width / 2, font_size + 10)
         }
-        x, y = pos.get(position, (width / 2, height / 2))
+        x, y = pos.get(position, (page_width / 2, page_height / 2))
 
         c.saveState()
         if position == "center":
@@ -304,7 +306,6 @@ def create_watermark_pdf(file_path, text, position):
             c.rotate(45)
             c.drawCentredString(0, 0, text)
         else:
-            c.setFont("Helvetica-Bold", 20)  # Smaller size for top and bottom
             c.drawCentredString(x, y, text)
         
         c.restoreState()
