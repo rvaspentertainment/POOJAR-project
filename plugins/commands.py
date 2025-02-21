@@ -339,14 +339,13 @@ async def create_watermark_page(page):
     c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
     c.drawString(100, 100, WATERMARK_TEXT)
     c.save()
-
-    await message.reply("done1")
+    
     # Read the watermark page and keep the file open
     f = open(watermark_filename, "rb")
     watermark_reader = PdfReader(f)
     watermark_page = watermark_reader.pages[0]  # Correctly get the PageObject
 
-    await message.reply("done2")
+    
     # Do not close the file until the watermark_page is fully processed
     f.close()
 
@@ -354,4 +353,4 @@ async def create_watermark_page(page):
     os.remove(watermark_filename)
     
     return watermark_page
-    await message.reply("done3")
+     
