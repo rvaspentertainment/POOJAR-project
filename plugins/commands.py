@@ -122,7 +122,7 @@ async def collect_files(bot, message):
         if user_images[user_id]:
             buttons.append([InlineKeyboardButton("Create PDF", callback_data="create_pdf")])
         
-        if user_pdfs[user_id]:
+        if len(user_pdfs[user_id]) < 1:
             buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
         
@@ -233,7 +233,7 @@ async def extract_images(client, query, user_id, image_format):
                 clear_user_data(user_id, "pdfs")
 
     except Exception as e:
-        await query.answer(f"Error during extraction: {str(e)}", show_alert=True)
+        await message.reply_text(f"An error occurred: {e}")
 
 
 import os
