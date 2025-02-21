@@ -27,6 +27,9 @@ from io import BytesIO
 from PyPDF2 import PdfReader, PageObject
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from docx import Document
+from fpdf import FPDF
+from pptx import Presentation
 
 from pypdf import PdfReader, PdfWriter
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
@@ -82,19 +85,21 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 
 # Initialize storage for images, PDFs, and last messages
 user_images = {}
+user_docs = {}
 user_pdfs = {}
 last_message = {}
 
 # Supported formats
 IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
 PDF_FORMATS = (".pdf",)
+DOC_FORMATS = (".txt", ".docx", ".pptx")
 
 
 ### Collect images and PDFs separately ###
 @Client.on_message(
     filters.private & 
     (filters.photo | 
-     (filters.document & filters.regex(r"\.(jpg|jpeg|png|pdf)$", flags=2))) & 
+     (filters.document & filters.regex(r"\.(jpg|jpeg|png|pdf|txt|docx|pptx)$", flags=2))) & 
     filters.incoming
 )
 async def collect_files(bot, message):
@@ -106,6 +111,9 @@ async def collect_files(bot, message):
             user_images[user_id] = []
         if user_id not in user_pdfs:
             user_pdfs[user_id] = []
+        if user_id not in user_docs:
+            user_docs[user_id] = []
+        
 
         if user_id in last_message and last_message[user_id]:
             try:
@@ -122,12 +130,17 @@ async def collect_files(bot, message):
             user_images[user_id].append(file_path)
         elif file_path.lower().endswith(PDF_FORMATS):
             user_pdfs[user_id].append(file_path)
+        elif file_path.lower().endswith(DOC_FORMATS):
+            user_docs[user_id].append(file_path)
 
         # Create dynamic buttons based on uploaded files
         buttons = []
         
         if user_images[user_id]:
             buttons.append([InlineKeyboardButton("Create PDF", callback_data="create_pdf")])
+
+        if user_docs[user_id]:
+            buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
         
         if len(user_pdfs[user_id]) == 1:
             buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
@@ -158,6 +171,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     if query.data == "create_pdf":
         await create_pdf(client, query, user_id)
+
+    elif query.data == "convert_docs":
+        await convert_docs_to_pdf(client, query, user_id)
 
     elif query.data == "prot_pdf":
         await protect_pdf(client, query, user_id)
@@ -404,3 +420,22 @@ async def protect_pdf(client, query, user_id):
 
         except Exception as e:
             await client.send_message(user_id, f"Failed to protect PDF: {e}")
+
+
+
+### Convert Documents to PDF ###
+async def convert_docs_to_pdf(client, query, user_id):
+    await query.message.edit_text("Converting documents to PDF, please wait...")
+
+    doc_files = user_docs.get(user_id, [])
+    if not doc_files:
+        await query.answer("No documents available for PDF conversion.", show_alert=True)
+        return
+
+    try:
+        response = await client.ask(user_id, "Send the PDF name (without extension):")
+        pdf_name = "".join(char for char in response.text if char.isalnum() or char in " _-").strip()
+        pdf_file_name = f"{pdf_name or 'converted'}.pdf"
+
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
