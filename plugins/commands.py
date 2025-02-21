@@ -237,59 +237,70 @@ async def extract_images(client, query, user_id, image_format):
 
 
 import os
-from pypdf import PdfReader, PdfWriter
+from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from reportlab.lib.colors import Color
 
-### Watermarking Function ###
 async def watermark_pdf(client, query, user_id, position):
     await query.message.edit_text("Watermarking PDF, please wait...")
-    response = await client.ask(user_id, "Send watermark text:")
-    watermark_text = response.text or "WATERMARK"
+    try:
+        response = await client.ask(user_id, "Send watermark text:")
+        watermark_text = response.text or "WATERMARK"
 
-    for pdf_path in user_pdfs.get(user_id, []):
-        reader = PdfReader(pdf_path)
-        writer = PdfWriter()
+        font_response = await client.ask(user_id, "Choose font style (Helvetica, Times-Roman, Courier):")
+        font_style = font_response.text if font_response.text in ["Helvetica", "Times-Roman", "Courier"] else "Helvetica"
 
-        watermark_pdf_path = ()
-        create_watermark_pdf(watermark_pdf_path, watermark_text, position)
+        for pdf_path in user_pdfs.get(user_id, []):
+            reader = PdfReader(pdf_path)
+            writer = PdfWriter()
 
-        watermark_reader = PdfReader(watermark_pdf_path)
-        watermark_page = watermark_reader.pages[0]
+            watermark_pdf_path = "watermark.pdf"
+            create_watermark_pdf(watermark_pdf_path, watermark_text, position, font_style)
 
-        for page in reader.pages:
-            page.merge_page(watermark_page)
-            writer.add_page(page)
+            watermark_reader = PdfReader(watermark_pdf_path)
+            watermark_page = watermark_reader.pages[0]
 
-        output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
-        with open(output_path, "wb") as f_out:
-            writer.write(f_out)
+            for page in reader.pages:
+                page.merge_page(watermark_page)
+                writer.add_page(page)
 
-        await client.send_document(user_id, document=output_path)
-        clear_user_data(user_id, "pdfs")
-        os.remove(output_path)
-        os.remove(watermark_pdf_path)
+            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
+            with open(output_path, "wb") as f_out:
+                writer.write(f_out)
+
+            await client.send_document(user_id, document=output_path)
+            clear_user_data(user_id, "pdfs")
+
+            os.remove(output_path)
+            os.remove(watermark_pdf_path)
+        await query.message.edit_text("Watermarking completed!")
+    except Exception as e:
+        await query.message.edit_text(f"Error during watermarking: {e}")
 
 ### Generate Watermark PDF ###
-def create_watermark_pdf(file_path, text, position):
-    c = canvas.Canvas(file_path, pagesize=letter)
-    width, height = letter
-    c.setFont("Helvetica", 40)
-    c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
+def create_watermark_pdf(file_path, text, position, font_style):
+    try:
+        c = canvas.Canvas(file_path, pagesize=letter)
+        width, height = letter
+        c.setFont(font_style, 40)
+        c.setFillColor(Color(0.6, 0.6, 0.6, alpha=0.5))  # Semi-transparent grey
 
-    pos = {
-        "top": (width / 2, height - 50),
-        "center": (width / 2, height / 2),
-        "bottom": (width / 2, 50)
-    }
-    x, y = pos.get(position, (width / 2, height / 2))
+        pos = {
+            "top": (width / 2, height - 50),
+            "center": (width / 2, height / 2),
+            "bottom": (width / 2, 50)
+        }
+        x, y = pos.get(position, (width / 2, height / 2))
 
-    c.saveState()
-    c.translate(x, y)
-    c.rotate(45)
-    c.drawCentredString(0, 0, text)
-    c.restoreState()
-    c.save()
+        c.saveState()
+        c.translate(x, y)
+        c.rotate(45)
+        c.drawCentredString(0, 0, text)
+        c.restoreState()
+        c.save()
+    except Exception as e:
+        print(f"Error creating watermark PDF: {e}")
 
 async def select_watermark_position(client, query, user_id):
     buttons = [
@@ -314,6 +325,7 @@ async def merge_pdfs(client, query, user_id):
     merger.close()
 
     await client.send_document(user_id, document=output_path)
+    clear_user_data(user_id, "pdfs")
     os.remove(output_path)
 
 
