@@ -330,7 +330,7 @@ from reportlab.pdfgen import canvas
 
 WATERMARK_TEXT = "Sample Watermark"
 
-def create_watermark_page(page):
+async def create_watermark_page(page):
     """Creates a watermark page for merging."""
     # Create a temporary watermark PDF using ReportLab
     watermark_filename = "watermark.pdf"
