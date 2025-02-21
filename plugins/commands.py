@@ -323,8 +323,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
-
-
 WATERMARK_TEXT = "Sample Watermark"
 
 def create_watermark_page(page):
@@ -337,11 +335,13 @@ def create_watermark_page(page):
     c.drawString(100, 100, WATERMARK_TEXT)
     c.save()
 
-    # Read the watermark page using PyPDF2
-    with open(watermark_filename, "rb") as f:
-        watermark_reader = PdfReader(f)
-        watermark_page = watermark_reader.pages[0]
+    # Open and read the watermark file without closing prematurely
+    f = open(watermark_filename, "rb")
+    watermark_reader = PdfReader(f)
+    watermark_page = watermark_reader.pages[0]
 
+    # Close the file and remove it safely
+    f.close()
     os.remove(watermark_filename)
     
     return watermark_page
