@@ -248,15 +248,12 @@ async def watermark_pdf(client, query, user_id, position):
         response = await client.ask(user_id, "Send watermark text:")
         watermark_text = response.text or "Poojar Project"
 
-        font_response = await client.ask(user_id, "Choose font style (Helvetica, Times-Roman, Courier):")
-        font_style = font_response.text if font_response.text in ["Helvetica", "Times-Roman", "Courier"] else "Helvetica"
-
         for pdf_path in user_pdfs.get(user_id, []):
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
 
             watermark_pdf_path = "watermark.pdf"
-            create_watermark_pdf(watermark_pdf_path, watermark_text, position, font_style)
+            create_watermark_pdf(watermark_pdf_path, watermark_text, position)
 
             watermark_reader = PdfReader(watermark_pdf_path)
             watermark_page = watermark_reader.pages[0]
@@ -279,19 +276,20 @@ async def watermark_pdf(client, query, user_id, position):
         await query.message.edit_text(f"Error during watermarking: {e}")
 
 ### Generate Watermark PDF ###
-def create_watermark_pdf(file_path, text, position, font_style):
+def create_watermark_pdf(file_path, text, position):
     try:
         c = canvas.Canvas(file_path, pagesize=letter)
         width, height = letter
         
         # Set font size based on position for desired appearance
         if position == "center":
-            font_size = 100  # Larger for center
+            font_size = 100  # Larger for center watermark
         else:
             font_size = 20   # Smaller for top and bottom
 
-        c.setFont(font_style, font_size)
-        c.setFillColor(Color(0, 0, 0, alpha=0.8))  # Solid black with slight transparency
+        c.setFont("Helvetica-Bold", font_size)
+        # Set color with 50% transparency (lighter text)
+        c.setFillColor(Color(0, 0, 0, alpha=0.5))  # Black with 50% transparency
 
         pos = {
             "top": (width / 2, height - 30),
@@ -306,8 +304,7 @@ def create_watermark_pdf(file_path, text, position, font_style):
             c.rotate(45)
             c.drawCentredString(0, 0, text)
         else:
-            c.setFont(font_style, 20)  # Ensure smaller size for top and bottom
-            c.setFillColor(Color(0, 0, 0, alpha=1))  # Solid black
+            c.setFont("Helvetica-Bold", 20)  # Smaller size for top and bottom
             c.drawCentredString(x, y, text)
         
         c.restoreState()
