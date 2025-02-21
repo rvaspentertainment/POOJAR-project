@@ -107,6 +107,13 @@ async def collect_files(bot, message):
         if user_id not in user_pdfs:
             user_pdfs[user_id] = []
 
+        if user_id in last_message and last_message[user_id]:
+            try:
+                await last_message[user_id][-1].delete()
+                last_message[user_id].pop()
+            except Exception as e:
+                print(f"Failed to delete the last message: {e}")
+
         # Download the file
         file_path = await message.download()
 
