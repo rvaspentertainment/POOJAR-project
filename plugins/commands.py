@@ -66,291 +66,238 @@ def formate_file_name(file_name):
 async def start(client, message):
     await message.reply("hi")
 
+import os
+from io import BytesIO
+import img2pdf
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
+from PIL import Image
+from pdf2image import convert_from_path
+
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+
+# Store images and PDFs separately
 user_images = {}
+user_pdfs = {}
 last_message = {}
 
+# Supported formats
+IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
+PDF_FORMATS = (".pdf",)
+
+# Initialize the bot to handle both images and PDFs
 @Client.on_message(
     filters.private & 
     (filters.photo | 
-     (filters.document & filters.regex(r"\.(jpg|jpeg|png)$", flags=2))) & 
+     (filters.document & filters.regex(r"\.(jpg|jpeg|png|pdf)$", flags=2))) & 
     filters.incoming
 )
-async def collect_images(bot, message):
+async def collect_files(bot, message):
     try:
         user_id = message.from_user.id
 
         # Initialize user storage if not present
         if user_id not in user_images:
             user_images[user_id] = []
+        if user_id not in user_pdfs:
+            user_pdfs[user_id] = []
 
-        # Download the new image
+        # Download the new file
         file_path = await message.download()
 
-        # Append the new image without deleting previous images
-        user_images[user_id].append(file_path)
+        # Categorize the file
+        if file_path.lower().endswith(IMAGE_FORMATS):
+            user_images[user_id].append(file_path)
+        elif file_path.lower().endswith(PDF_FORMATS):
+            user_pdfs[user_id].append(file_path)
 
-        # Delete the old "Create PDF" button message if exists
+        # Create dynamic buttons based on the uploaded files
+        buttons = []
         
-        # Send a new message with the "Create PDF" button
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Create PDF", callback_data="create_pdf")]
-        ])
+        if user_images[user_id]:
+            buttons.append([InlineKeyboardButton("Create PDF", callback_data="create_pdf")])
         
+        if user_pdfs[user_id]:
+            buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
+            buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
+        
+        if len(user_pdfs[user_id]) > 1:
+            buttons.append([InlineKeyboardButton("Merge PDFs", callback_data="merge_pdfs")])
+        
+        if not buttons:
+            await message.reply_text("No valid files found. Please send images or PDFs.")
+            return
+
+        # Send the message with dynamic buttons
         sent_message = await message.reply_text(
-            f"Image added! You have {len(user_images[user_id])} image(s) ready.\n\n"
-            "Click 'Create PDF' to generate your PDF file.", 
-            reply_markup=buttons
+            f"File added! You have {len(user_images[user_id])} image(s) and {len(user_pdfs[user_id])} PDF(s) ready.\n\n"
+            "Choose an action to proceed.", 
+            reply_markup=InlineKeyboardMarkup(buttons)
         )
-        
-        # Store the reference to the latest message with a button
+
+        # Store the latest message with buttons
+        if user_id not in last_message:
+            last_message[user_id] = []
         last_message[user_id].append(sent_message)
-                 
-    except Exception as e:
-        await message.reply_text(f"An error occurred: {e}")
-
-
-
-user_pdfs = {}
-last_message = {}
-
-# Watermark settings
-WATERMARK_TEXT = "poojar project"
-WATERMARK_POSITION = "bottom_right"
-
-@Client.on_message(
-    filters.private & 
-    filters.document & 
-    filters.regex(r"\.pdf$", flags=2) & 
-    filters.incoming
-)
-async def collect_pdfs(bot, message):
-    try:
-        user_id = message.from_user.id
-
-        
-        # Download the PDF file
-        file_path = await message.download()
-        user_pdfs[user_id] = file_path
-
-        # Send options for PDF editing
-        buttons = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Add Watermark", callback_data="add_watermark")],
-            [InlineKeyboardButton("Protect with Password", callback_data="protect_pdf")],
-            [InlineKeyboardButton("Extract Images (JPEG)", callback_data="extract_jpeg")],
-            [InlineKeyboardButton("Extract Images (PNG)", callback_data="extract_png")]
-        ])
-        
-        await message.reply_text(
-            "PDF received! Choose an action to perform on this PDF:",
-            reply_markup=buttons
-        )
-
-        
 
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
 
-
-
-
-    
-
-
+# Handle button actions
 @Client.on_callback_query()
 async def cb_handler(client: Client, query: CallbackQuery):
     user_id = query.from_user.id
-    pdf_path = user_pdfs.get(user_id)
 
     if query.data == "create_pdf":
-        # Edit the message to remove the button and show progress
-        msg1 = await query.message.edit_text("Creating your PDF, please wait...")
+        await create_pdf(client, query, user_id)
 
-        # Check if user has images
-        if user_id not in user_images or len(user_images[user_id]) == 0:
-            await query.answer("You have no images to create a PDF.", show_alert=True)
-            return
+    elif query.data == "extract_images":
+        await extract_images(client, query, user_id)
 
-        try:
-            # Ask the user for the PDF file name (without extension)
-            response = await client.ask(user_id, "**Send the PDF name (without extension):**")
-            pdf_name = response.text if response.text else "converted"
+    elif query.data == "watermark_pdf":
+        await watermark_pdf(client, query, user_id)
 
-            # Sanitize the file name
-            pdf_name = "".join(char for char in pdf_name if char.isalnum() or char in " _-").strip()
-            if not pdf_name:
-                pdf_name = "converted"
+    elif query.data == "merge_pdfs":
+        await merge_pdfs(client, query, user_id)
 
-            # Add the .pdf extension
-            pdf_file_name = f"{pdf_name}.pdf"
 
-            # Convert images to a PDF using img2pdf
-            pdf_bytes = img2pdf.convert(user_images[user_id])
+# Create PDF from images
+async def create_pdf(client, query, user_id):
+    await query.message.edit_text("Creating your PDF, please wait...")
 
-            # Save to BytesIO
-            pdf_output = BytesIO(pdf_bytes)
-            pdf_output.seek(0)
+    image_files = user_images.get(user_id, [])
+    if not image_files:
+        await query.answer("No images available for PDF creation.", show_alert=True)
+        return
 
-            await msg1.delete()
-            await response.delete()
-            # Send the PDF to the user
-            await client.send_document(
-                chat_id=user_id,
-                document=pdf_output,
-                file_name=pdf_file_name,
-                caption=f"Here is your PDF: **{pdf_file_name}**"
-            )
+    try:
+        response = await client.ask(user_id, "**Send the PDF name (without extension):**")
+        pdf_name = response.text if response.text else "converted"
+        pdf_name = "".join(char for char in pdf_name if char.isalnum() or char in " _-").strip()
+        pdf_file_name = f"{pdf_name or 'converted'}.pdf"
 
-            # Delete user images from the server
-            for file_path in user_images[user_id]:
-                if os.path.exists(file_path):
-                    os.remove(file_path)
+        pdf_bytes = img2pdf.convert(image_files)
+        pdf_output = BytesIO(pdf_bytes)
+        pdf_output.seek(0)
 
-            # Clear the image list and last message for the user
-            user_images[user_id].clear()
-            if user_id in last_message:
-                del last_message[user_id]
+        await response.delete()
+        await client.send_document(
+            chat_id=user_id,
+            document=pdf_output,
+            file_name=pdf_file_name,
+            caption=f"Here is your PDF: **{pdf_file_name}**"
+        )
 
-            # Send a confirmation message
-            
+        clear_user_data(user_id, "images")
+        await query.answer("PDF created successfully.", show_alert=True)
 
-            await query.answer("Your PDF has been created.", show_alert=True)
+    except Exception as e:
+        await query.answer(f"Error while creating PDF: {str(e)}", show_alert=True)
 
-        except Exception as e:
-            await query.answer(f"An error occurred while creating the PDF: {str(e)}", show_alert=True)
 
-    elif query.data == "add_watermark":
-        await query.message.edit_text("Adding watermark to your PDF...")
-        
-        try:
-            # Apply watermark to each page
-            watermarked_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
-            reader = PdfReader(pdf_path)
-            writer = PdfWriter()
+# Extract images from PDFs
+async def extract_images(client, query, user_id):
+    pdf_files = user_pdfs.get(user_id, [])
+    if not pdf_files:
+        await query.answer("No PDF files available for extraction.", show_alert=True)
+        return
 
-            for page in reader.pages:
-                page.merge_page(create_watermark_page(page))
-                writer.add_page(page)
+    await query.message.edit_text("Extracting images from PDFs, please wait...")
 
-            with open(watermarked_path, "wb") as f:
-                writer.write(f)
+    try:
+        for pdf_path in pdf_files:
+            images = convert_from_path(pdf_path, fmt='png')
+            for idx, img in enumerate(images):
+                img_bytes = BytesIO()
+                img.save(img_bytes, format='PNG')
+                img_bytes.seek(0)
 
-            await client.send_document(
-                chat_id=user_id,
-                document=watermarked_path,
-                file_name="watermarked.pdf",
-                caption="Here is your watermarked PDF!"
-            )
+                await client.send_document(
+                    chat_id=user_id,
+                    document=img_bytes,
+                    file_name=f"page_{idx+1}.png"
+                )
 
-            os.remove(watermarked_path)
+        clear_user_data(user_id, "pdfs")
+        await query.answer("Images extracted successfully.", show_alert=True)
 
-        except Exception as e:
-            await query.answer(f"Failed to add watermark: {e}", show_alert=True)
+    except Exception as e:
+        await query.answer(f"Error during extraction: {str(e)}", show_alert=True)
 
-    elif query.data == "protect_pdf":
-        await query.message.edit_text("Send the password to protect the PDF:")
-        
-        response = await client.ask(user_id, "**Send the password for the PDF:**")
-        pdf_password = response.text
 
-        try:
-            # Protect PDF with password
-            protected_path = f"{os.path.splitext(pdf_path)[0]}_protected.pdf"
+# Watermark PDF
+async def watermark_pdf(client, query, user_id):
+    pdf_files = user_pdfs.get(user_id, [])
+    if not pdf_files:
+        await query.answer("No PDF files available for watermarking.", show_alert=True)
+        return
+
+    response = await client.ask(user_id, "Send watermark text:")
+    watermark_text = response.text or "WATERMARK"
+
+    await query.message.edit_text("Applying watermark, please wait...")
+
+    try:
+        for pdf_path in pdf_files:
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
 
             for page in reader.pages:
                 writer.add_page(page)
 
-            writer.encrypt(pdf_password)
+            output_path = f"{pdf_path}_watermarked.pdf"
+            with open(output_path, "wb") as f_out:
+                writer.write(f_out)
 
-            with open(protected_path, "wb") as f:
-                writer.write(f)
+            await client.send_document(user_id, document=output_path)
+            os.remove(output_path)
 
-            await client.send_document(
-                chat_id=user_id,
-                document=protected_path,
-                file_name="protected.pdf",
-                caption="Here is your password-protected PDF!"
-            )
+        clear_user_data(user_id, "pdfs")
+        await query.answer("Watermark applied successfully.", show_alert=True)
 
-            os.remove(protected_path)
-
-        except Exception as e:
-            await query.answer(f"Failed to protect PDF: {e}", show_alert=True)
-
-    elif query.data in ["extract_jpeg", "extract_png"]:
-        await query.message.edit_text("Extracting images from your PDF...")
-
-        try:
-            image_format = "JPEG" if query.data == "extract_jpeg" else "PNG"
-            reader = PdfReader(pdf_path)
-            images = []
-
-            for page_number, page in enumerate(reader.pages, start=1):
-                for image_index, image_file in enumerate(page.images, start=1):
-                    image_data = image_file.data
-                    image_name = f"page_{page_number}_img_{image_index}.{image_format.lower()}"
-                    image_path = os.path.join("/tmp", image_name)
-
-                    with open(image_path, "wb") as img_file:
-                        img_file.write(image_data)
-
-                    images.append(image_path)
-
-            if images:
-                for image_path in images:
-                    await client.send_document(
-                        chat_id=user_id,
-                        document=image_path,
-                        file_name=os.path.basename(image_path)
-                    )
-                    os.remove(image_path)
-            else:
-                await query.answer("No images found in the PDF.", show_alert=True)
-
-        except Exception as e:
-            await query.answer(f"Failed to extract images: {e}", show_alert=True)
-
-    elif query.data == "delete_pdf":
-        await query.message.edit_text("Deleting your PDF...")
-
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-        user_pdfs[user_id] = None
-
-        await query.answer("Your PDF has been deleted.", show_alert=True)
+    except Exception as e:
+        await query.answer(f"Error during watermarking: {str(e)}", show_alert=True)
 
 
+# Merge PDFs
+async def merge_pdfs(client, query, user_id):
+    pdf_files = user_pdfs.get(user_id, [])
+    if len(pdf_files) < 2:
+        await query.answer("Need at least 2 PDFs to merge.", show_alert=True)
+        return
+
+    await query.message.edit_text("Merging PDFs, please wait...")
+
+    merger = PdfMerger()
+
+    try:
+        for pdf_path in pdf_files:
+            merger.append(pdf_path)
+
+        output_path = "merged_output.pdf"
+        merger.write(output_path)
+        merger.close()
+
+        await client.send_document(user_id, document=output_path)
+        os.remove(output_path)
+
+        clear_user_data(user_id, "pdfs")
+        await query.answer("PDFs merged successfully.", show_alert=True)
+
+    except Exception as e:
+        await query.answer(f"Error during merging: {str(e)}", show_alert=True)
 
 
+# Clear user data utility
+def clear_user_data(user_id, data_type="all"):
+    if data_type in ("all", "images"):
+        for file_path in user_images.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_images[user_id] = []
 
-import os
-from PyPDF2 import PdfReader, PageObject
-from reportlab.pdfgen import canvas
-
-WATERMARK_TEXT = "Sample Watermark"
-
-async def create_watermark_page(page):
-    """Creates a watermark page for merging."""
-    # Create a temporary watermark PDF using ReportLab
-    watermark_filename = "watermark.pdf"
-    c = canvas.Canvas(watermark_filename, pagesize=(page.mediabox.width, page.mediabox.height))
-    c.setFont("Helvetica", 20)
-    c.setFillColorRGB(0.6, 0.6, 0.6, alpha=0.5)
-    c.drawString(100, 100, WATERMARK_TEXT)
-    c.save()
-    
-    # Read the watermark page and keep the file open
-    f = open(watermark_filename, "rb")
-    watermark_reader = PdfReader(f)
-    watermark_page = watermark_reader.pages[0]  # Correctly get the PageObject
-
-    
-    # Do not close the file until the watermark_page is fully processed
-    f.close()
-
-    # Safely remove the temporary file
-    os.remove(watermark_filename)
-    
-    return watermark_page
-     
+    if data_type in ("all", "pdfs"):
+        for file_path in user_pdfs.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_pdfs[user_id] = []
