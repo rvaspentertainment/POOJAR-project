@@ -325,6 +325,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
+import os
+from PyPDF2 import PdfReader, PageObject
+from reportlab.pdfgen import canvas
+
 WATERMARK_TEXT = "Sample Watermark"
 
 def create_watermark_page(page):
@@ -337,12 +341,12 @@ def create_watermark_page(page):
     c.drawString(100, 100, WATERMARK_TEXT)
     c.save()
 
-    # Read the watermark page before closing the file
+    # Read the watermark page as a PageObject
     with open(watermark_filename, "rb") as f:
         watermark_reader = PdfReader(f)
-        watermark_page = watermark_reader.pages[0].extract_text()
+        watermark_page = watermark_reader.pages[0]  # Correctly access the page as a PageObject
 
-    # Remove the temporary watermark file
+    # Remove the temporary file after reading
     os.remove(watermark_filename)
     
     return watermark_page
