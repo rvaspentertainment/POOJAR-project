@@ -132,6 +132,7 @@ async def collect_files(bot, message):
         if len(user_pdfs[user_id]) == 1:
             buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
+            buttons.append([InlineKeyboardButton("Protect PDF", callback_data="prot_pdf")])  # New Button
         
         if len(user_pdfs[user_id]) > 1:
             buttons.append([InlineKeyboardButton("Merge PDFs", callback_data="merge_pdfs")])
@@ -157,6 +158,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     if query.data == "create_pdf":
         await create_pdf(client, query, user_id)
+
+    elif query.data == "prot_pdf":
+        await protect_pdf(client, query, user_id)
 
     elif query.data == "extract_images":
         await select_image_format(client, query, user_id)
@@ -360,3 +364,37 @@ def clear_user_data(user_id, data_type="all"):
             if os.path.exists(file_path):
                 os.remove(file_path)
         user_pdfs[user_id] = []
+        
+
+async def protect_pdf(client, query, user_id):
+    
+    await query.message.edit_text("Preparing to protect your PDF...")
+
+    if len(user_pdfs[user_id]) == 1:
+        try:
+            # Ask for the password
+            response = await client.ask(user_id, "Send the password to protect the PDF:")
+            password = response.text or "Poojar Project"
+
+            input_pdf_path = user_pdfs[user_id][0]
+            output_pdf_path = f"protected_{input_pdf_path}"
+
+            # Apply password protection
+            writer = PdfWriter()
+            with open(input_pdf_path, "rb") as file:
+                reader = PdfReader(file)
+                for page_num in range(len(reader.pages)):
+                    writer.add_page(reader.pages[page_num])
+                
+                writer.encrypt(password)
+                
+                with open(output_pdf_path, "wb") as output_file:
+                    writer.write(output_file)
+            
+            await client.send_document(user_id, output_pdf_path, caption="Your password-protected PDF is ready!")
+            clear_user_data(user_id, "pdfs")
+            os.remove(output_path)
+
+
+        except Exception as e:
+            await client.send_message(user_id, f"Failed to protect PDF: {e}")
