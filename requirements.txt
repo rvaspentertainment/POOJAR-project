@@ -28,3 +28,4 @@ reportlab
 pdf2image
 python-docx
 python-pptx
+aiofiles
