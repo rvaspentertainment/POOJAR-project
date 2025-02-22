@@ -429,7 +429,7 @@ async def protect_pdf(client, query, user_id):
 
 
 
-### Convert Documents to PDF ###
+
 async def convert_docs_to_pdf(client, query, user_id):
     await query.message.edit_text("Converting documents to PDF, please wait...")
 
@@ -445,28 +445,29 @@ async def convert_docs_to_pdf(client, query, user_id):
 
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)  # Add Unicode font
+        pdf.set_font("DejaVu", size=12)  # Use Unicode font
 
         for doc_file in doc_files:
             pdf.add_page()
-            pdf.set_font("Arial", size=12)
 
             if doc_file.lower().endswith(".txt"):
                 with open(doc_file, "r", encoding="utf-8") as f:
                     for line in f:
                         pdf.multi_cell(0, 10, line)
-            
+
             elif doc_file.lower().endswith(".docx"):
                 doc = Document(doc_file)
                 for para in doc.paragraphs:
                     pdf.multi_cell(0, 10, para.text)
-            
+
             elif doc_file.lower().endswith(".pptx"):
                 ppt = Presentation(doc_file)
                 for slide in ppt.slides:
                     for shape in slide.shapes:
                         if hasattr(shape, "text"):
                             pdf.multi_cell(0, 10, shape.text)
-        
+
         pdf_output = BytesIO()
         pdf.output(pdf_output)
         pdf_output.seek(0)
