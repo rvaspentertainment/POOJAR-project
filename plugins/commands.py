@@ -428,7 +428,10 @@ async def protect_pdf(client, query, user_id):
             await client.send_message(user_id, f"Failed to protect PDF: {e}")
 
 
-
+from fpdf import FPDF
+from pptx import Presentation
+from docx import Document
+from io import BytesIO
 
 async def convert_docs_to_pdf(client, query, user_id):
     await query.message.edit_text("Converting documents to PDF, please wait...")
@@ -445,8 +448,7 @@ async def convert_docs_to_pdf(client, query, user_id):
 
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)  # Add Unicode font
-        pdf.set_font("DejaVu", size=12)  # Use Unicode font
+        pdf.set_font("Arial", size=12)  # Use default Arial font for English text
 
         for doc_file in doc_files:
             pdf.add_page()
