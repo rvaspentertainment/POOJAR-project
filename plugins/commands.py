@@ -64,6 +64,10 @@ def formate_file_name(file_name):
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ0
 
+@Client.on_message(filters.command("clear") & filters.incoming)
+async def clear(client, message):
+    await clear_user_data(user_id, "pdfs", "images", "docs")
+
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
