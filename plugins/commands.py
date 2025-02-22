@@ -427,7 +427,6 @@ async def protect_pdf(client, query, user_id):
         except Exception as e:
             await client.send_message(user_id, f"Failed to protect PDF: {e}")
 
-
 from fpdf import FPDF
 from pptx import Presentation
 from docx import Document
@@ -448,27 +447,31 @@ async def convert_docs_to_pdf(client, query, user_id):
 
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font("Arial", size=12)  # Use default Arial font for English text
+        pdf.set_font("Arial", size=12)
+
+        def sanitize_text(text):
+            """Filter non-ASCII characters to avoid encoding errors."""
+            return "".join(char for char in text if ord(char) < 128)
 
         for doc_file in doc_files:
             pdf.add_page()
 
             if doc_file.lower().endswith(".txt"):
-                with open(doc_file, "r", encoding="utf-8") as f:
+                with open(doc_file, "r", encoding="utf-8", errors="ignore") as f:
                     for line in f:
-                        pdf.multi_cell(0, 10, line)
+                        pdf.multi_cell(0, 10, sanitize_text(line))
 
             elif doc_file.lower().endswith(".docx"):
                 doc = Document(doc_file)
                 for para in doc.paragraphs:
-                    pdf.multi_cell(0, 10, para.text)
+                    pdf.multi_cell(0, 10, sanitize_text(para.text))
 
             elif doc_file.lower().endswith(".pptx"):
                 ppt = Presentation(doc_file)
                 for slide in ppt.slides:
                     for shape in slide.shapes:
                         if hasattr(shape, "text"):
-                            pdf.multi_cell(0, 10, shape.text)
+                            pdf.multi_cell(0, 10, sanitize_text(shape.text))
 
         pdf_output = BytesIO()
         pdf.output(pdf_output)
