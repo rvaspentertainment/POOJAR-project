@@ -487,8 +487,9 @@ import os
 from fpdf import FPDF
 from pptx import Presentation
 from docx import Document
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from io import BytesIO
+import aiofiles
 
 async def convert_docs_to_pdf(client, query, user_id):
     await query.message.edit_text("Converting documents to PDF, please wait...")
@@ -509,6 +510,7 @@ async def convert_docs_to_pdf(client, query, user_id):
             
             ### Convert PPTX to Images ###
             if doc_file.lower().endswith(".pptx"):
+                await query.message.edit_text("Processing PPTX file...")
                 ppt = Presentation(doc_file)
                 for i, slide in enumerate(ppt.slides):
                     slide_image_path = f"slide_{i}.png"
@@ -527,6 +529,7 @@ async def convert_docs_to_pdf(client, query, user_id):
             
             ### Convert DOCX to Images ###
             elif doc_file.lower().endswith(".docx"):
+                await query.message.edit_text("Processing DOCX file...")
                 doc = Document(doc_file)
                 for i, para in enumerate(doc.paragraphs):
                     page_image_path = f"page_{i}.png"
@@ -543,27 +546,33 @@ async def convert_docs_to_pdf(client, query, user_id):
             await query.answer("No images generated for PDF creation.", show_alert=True)
             return
 
+        await query.message.edit_text("Generating PDF file...")
+
         pdf = FPDF()
         for image_file in image_files:
             pdf.add_page()
             pdf.image(image_file, x=0, y=0, w=210, h=297)  # A4 dimensions in mm
 
-        pdf_output = BytesIO()
-        pdf.output(pdf_output, 'F')
-        pdf_output.seek(0)
+        # Save the PDF to a temporary file asynchronously
+        temp_pdf_path = f"/tmp/{pdf_file_name}"
+        pdf.output(temp_pdf_path, 'F')
 
-        await client.send_document(
-            chat_id=user_id,
-            document=pdf_output,
-            file_name=pdf_file_name,
-            caption=f"Here is your converted PDF: **{pdf_file_name}**"
-        )
+        async with aiofiles.open(temp_pdf_path, 'rb') as pdf_file:
+            await client.send_document(
+                chat_id=user_id,
+                document=pdf_file,
+                file_name=pdf_file_name,
+                caption=f"Here is your converted PDF: **{pdf_file_name}**"
+            )
 
         clear_user_data(user_id, "docs")
 
-        # Clean up image files
+        # Clean up image files and temporary PDF
         for img in image_files:
-            os.remove(img)
+            if os.path.exists(img):
+                os.remove(img)
+        if os.path.exists(temp_pdf_path):
+            os.remove(temp_pdf_path)
 
     except Exception as e:
         await query.answer(f"Error while converting documents: {str(e)}", show_alert=True)
