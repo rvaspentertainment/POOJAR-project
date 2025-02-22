@@ -474,7 +474,7 @@ async def convert_docs_to_pdf(client, query, user_id):
                             pdf.multi_cell(0, 10, sanitize_text(shape.text))
 
         pdf_output = BytesIO()
-        pdf.output(pdf_output)
+        pdf.output(pdf_output, "F")  # Correctly save to BytesIO
         pdf_output.seek(0)
 
         await client.send_document(
