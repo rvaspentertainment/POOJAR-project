@@ -140,8 +140,12 @@ async def collect_files(bot, message):
             buttons.append([InlineKeyboardButton("Create PDF", callback_data="create_pdf")])
 
         if user_docs[user_id]:
-            buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
-        
+            for doc in user_docs[user_id]:
+                if doc.endswith(('.docx', '.pptx')):
+                    buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
+                elif doc.endswith('.txt'):
+                    buttons.append([InlineKeyboardButton("Convert TXT to PDF", callback_data="convert_txt")])
+
         if len(user_pdfs[user_id]) == 1:
             buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
@@ -174,6 +178,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     elif query.data == "convert_docs":
         await convert_docs_to_pdf(client, query, user_id)
+
+    elif query.data == "convert_txt":
+        await convert_txt_to_pdf(client, query, user_id)
+
 
     elif query.data == "prot_pdf":
         await protect_pdf(client, query, user_id)
@@ -430,6 +438,8 @@ async def protect_pdf(client, query, user_id):
 from fpdf import FPDF
 from pptx import Presentation
 from docx import Document
+from PIL import Image
+import os
 
 async def convert_docs_to_pdf(client, query, user_id):
     await query.message.edit_text("Converting documents to PDF, please wait...")
@@ -445,38 +455,89 @@ async def convert_docs_to_pdf(client, query, user_id):
         pdf_file_name = f"{pdf_name or 'converted'}.pdf"
 
         pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.set_font("Arial", size=12)
+        pdf.set_auto_page_break(auto=True, margin=0)
 
-        def sanitize_text(text):
-            """Filter non-ASCII characters to avoid encoding errors."""
-            return "".join(char for char in text if ord(char) < 128)
+        image_files = []
 
         for doc_file in doc_files:
-            pdf.add_page()
+            if doc_file.lower().endswith(".pptx"):
+                ppt = Presentation(doc_file)
+                for i, slide in enumerate(ppt.slides):
+                    temp_image_path = f"slide_{i}.png"
+                    slide_width = int(ppt.slide_width * 0.1)  # Scaling factor for image size
+                    slide_height = int(ppt.slide_height * 0.1)
 
-            if doc_file.lower().endswith(".txt"):
-                with open(doc_file, "r", encoding="utf-8", errors="ignore") as f:
-                    for line in f:
-                        pdf.multi_cell(0, 10, sanitize_text(line))
+                    # Create a blank white image as a placeholder
+                    img = Image.new("RGB", (slide_width, slide_height), "white")
+                    img.save(temp_image_path)
+                    image_files.append(temp_image_path)
+
+                    pdf.add_page()
+                    pdf.image(temp_image_path, x=0, y=0, w=210)  # A4 width in mm
 
             elif doc_file.lower().endswith(".docx"):
                 doc = Document(doc_file)
-                for para in doc.paragraphs:
-                    pdf.multi_cell(0, 10, sanitize_text(para.text))
+                temp_image_path = "page_0.png"
 
-            elif doc_file.lower().endswith(".pptx"):
-                ppt = Presentation(doc_file)
-                for slide in ppt.slides:
-                    for shape in slide.shapes:
-                        if hasattr(shape, "text"):
-                            pdf.multi_cell(0, 10, sanitize_text(shape.text))
+                # Create a blank white image as a placeholder for each page
+                for i, _ in enumerate(doc.paragraphs):
+                    img = Image.new("RGB", (595, 842), "white")  # A4 size in pixels (approx.)
+                    img.save(temp_image_path)
+                    image_files.append(temp_image_path)
 
-        # Save directly in the server's current directory using {}
+                    pdf.add_page()
+                    pdf.image(temp_image_path, x=0, y=0, w=210)
+
         temp_pdf_path = "{}".format(pdf_file_name)
         pdf.output(temp_pdf_path)
 
-        # Send the PDF file through Telegram
+        await client.send_document(
+            chat_id=user_id,
+            document=temp_pdf_path,
+            caption=f"Here is your converted PDF: **{pdf_file_name}**"
+        )
+
+        # Clean up temporary image files
+        for image_file in image_files:
+            if os.path.exists(image_file):
+                os.remove(image_file)
+
+        clear_user_data(user_id, "docs")
+
+    except Exception as e:
+        await query.answer(f"Error while converting documents: {str(e)}", show_alert=True)
+
+from fpdf import FPDF
+import os
+
+async def convert_txt_to_pdf(client, query, user_id):
+    await query.message.edit_text("Converting .txt file to PDF, please wait...")
+
+    txt_files = user_docs.get(user_id, [])
+    if not txt_files:
+        await query.answer("No .txt files available for PDF conversion.", show_alert=True)
+        return
+
+    try:
+        response = await client.ask(user_id, "Send the PDF name (without extension):")
+        pdf_name = "".join(char for char in response.text if char.isalnum() or char in " _-").strip()
+        pdf_file_name = f"{pdf_name or 'converted'}.pdf"
+
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_font("Arial", size=12)
+
+        for txt_file in txt_files:
+            if txt_file.lower().endswith(".txt"):
+                pdf.add_page()
+
+                with open(txt_file, "r", encoding="utf-8", errors="ignore") as file:
+                    for line in file:
+                        pdf.multi_cell(0, 10, line.strip())
+
+        temp_pdf_path = "{}".format(pdf_file_name)
+        pdf.output(temp_pdf_path)
+
         await client.send_document(
             chat_id=user_id,
             document=temp_pdf_path,
@@ -486,4 +547,4 @@ async def convert_docs_to_pdf(client, query, user_id):
         clear_user_data(user_id, "docs")
 
     except Exception as e:
-        await query.answer(f"Error while converting documents: {str(e)}", show_alert=True)
+        await query.answer(f"Error while converting .txt to PDF: {str(e)}", show_alert=True)
