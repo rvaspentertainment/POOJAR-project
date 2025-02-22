@@ -381,6 +381,12 @@ def clear_user_data(user_id, data_type="all"):
                 os.remove(file_path)
         user_pdfs[user_id] = []
         
+    if data_type in ["all", "docs"]:
+        for file_path in user_pdfs.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_docs[user_id] = []
+        
 
 import os
 from PyPDF2 import PdfReader, PdfWriter
@@ -439,3 +445,40 @@ async def convert_docs_to_pdf(client, query, user_id):
 
         pdf = FPDF()
         pdf.set_auto_page_break(auto=True, margin=15)
+
+        for doc_file in doc_files:
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+
+            if doc_file.lower().endswith(".txt"):
+                with open(doc_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        pdf.multi_cell(0, 10, line)
+            
+            elif doc_file.lower().endswith(".docx"):
+                doc = Document(doc_file)
+                for para in doc.paragraphs:
+                    pdf.multi_cell(0, 10, para.text)
+            
+            elif doc_file.lower().endswith(".pptx"):
+                ppt = Presentation(doc_file)
+                for slide in ppt.slides:
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            pdf.multi_cell(0, 10, shape.text)
+        
+        pdf_output = BytesIO()
+        pdf.output(pdf_output)
+        pdf_output.seek(0)
+
+        await client.send_document(
+            chat_id=user_id,
+            document=pdf_output,
+            file_name=pdf_file_name,
+            caption=f"Here is your converted PDF: **{pdf_file_name}**"
+        )
+
+        clear_user_data(user_id, "docs")
+
+    except Exception as e:
+        await query.answer(f"Error while converting documents: {str(e)}", show_alert=True)
