@@ -483,10 +483,11 @@ async def convert_txt_to_pdf(client, query, user_id):
     except Exception as e:
         await query.answer(f"Error while converting .txt to PDF: {str(e)}", show_alert=True)
 
+import os
 from fpdf import FPDF
 from pptx import Presentation
 from docx import Document
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 
 async def convert_docs_to_pdf(client, query, user_id):
@@ -513,7 +514,14 @@ async def convert_docs_to_pdf(client, query, user_id):
                     slide_image_path = f"slide_{i}.png"
                     slide_image = Image.new("RGB", (1280, 720), "white")
                     draw = ImageDraw.Draw(slide_image)
-                    draw.text((50, 50), f"Slide {i+1}", fill="black")
+                    
+                    # Extract and render text from slides
+                    text_content = []
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            text_content.append(shape.text)
+
+                    draw.multiline_text((50, 50), "\n".join(text_content), fill="black")
                     slide_image.save(slide_image_path)
                     image_files.append(slide_image_path)
             
@@ -524,7 +532,9 @@ async def convert_docs_to_pdf(client, query, user_id):
                     page_image_path = f"page_{i}.png"
                     page_image = Image.new("RGB", (595, 842), "white")  # A4 size at 72 DPI
                     draw = ImageDraw.Draw(page_image)
-                    draw.text((50, 50), para.text[:100], fill="black")  # Example: render first 100 chars
+                    
+                    # Render the paragraph text properly
+                    draw.multiline_text((50, 50), para.text, fill="black")
                     page_image.save(page_image_path)
                     image_files.append(page_image_path)
 
@@ -533,8 +543,13 @@ async def convert_docs_to_pdf(client, query, user_id):
             await query.answer("No images generated for PDF creation.", show_alert=True)
             return
 
-        pdf_bytes = img2pdf.convert(image_files)
-        pdf_output = BytesIO(pdf_bytes)
+        pdf = FPDF()
+        for image_file in image_files:
+            pdf.add_page()
+            pdf.image(image_file, x=0, y=0, w=210, h=297)  # A4 dimensions in mm
+
+        pdf_output = BytesIO()
+        pdf.output(pdf_output, 'F')
         pdf_output.seek(0)
 
         await client.send_document(
