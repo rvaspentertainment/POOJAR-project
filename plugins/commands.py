@@ -141,8 +141,10 @@ async def collect_files(bot, message):
 
         if user_docs[user_id]:
             for doc in user_docs[user_id]:
-                if doc.endswith(('.docx', '.pptx')):
+                if doc.endswith('.docx'):
                     buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
+                if doc.endswith('.pptx'):
+                    buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_pptx")])
                 elif doc.endswith('.txt'):
                     buttons.append([InlineKeyboardButton("Convert TXT to PDF", callback_data="convert_txt")])
 
@@ -178,6 +180,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     elif query.data == "convert_docs":
         await convert_docs_to_pdf(client, query, user_id)
+    
+    elif query.data == "convert_pptx":
+        await convert_pptx_to_pdf(client, query, user_id)
 
     elif query.data == "convert_txt":
         await convert_txt_to_pdf(client, query, user_id)
@@ -435,77 +440,6 @@ async def protect_pdf(client, query, user_id):
         except Exception as e:
             await client.send_message(user_id, f"Failed to protect PDF: {e}")
 
-from fpdf import FPDF
-from pptx import Presentation
-from docx import Document
-from PIL import Image
-import os
-
-async def convert_docs_to_pdf(client, query, user_id):
-    await query.message.edit_text("Converting documents to PDF, please wait...")
-
-    doc_files = user_docs.get(user_id, [])
-    if not doc_files:
-        await query.answer("No documents available for PDF conversion.", show_alert=True)
-        return
-
-    try:
-        response = await client.ask(user_id, "Send the PDF name (without extension):")
-        pdf_name = "".join(char for char in response.text if char.isalnum() or char in " _-").strip()
-        pdf_file_name = f"{pdf_name or 'converted'}.pdf"
-
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=0)
-
-        image_files = []
-
-        for doc_file in doc_files:
-            if doc_file.lower().endswith(".pptx"):
-                ppt = Presentation(doc_file)
-                for i, slide in enumerate(ppt.slides):
-                    temp_image_path = f"slide_{i}.png"
-                    slide_width = int(ppt.slide_width * 0.1)  # Scaling factor for image size
-                    slide_height = int(ppt.slide_height * 0.1)
-
-                    # Create a blank white image as a placeholder
-                    img = Image.new("RGB", (slide_width, slide_height), "white")
-                    img.save(temp_image_path)
-                    image_files.append(temp_image_path)
-
-                    pdf.add_page()
-                    pdf.image(temp_image_path, x=0, y=0, w=210)  # A4 width in mm
-
-            elif doc_file.lower().endswith(".docx"):
-                doc = Document(doc_file)
-                temp_image_path = "page_0.png"
-
-                # Create a blank white image as a placeholder for each page
-                for i, _ in enumerate(doc.paragraphs):
-                    img = Image.new("RGB", (595, 842), "white")  # A4 size in pixels (approx.)
-                    img.save(temp_image_path)
-                    image_files.append(temp_image_path)
-
-                    pdf.add_page()
-                    pdf.image(temp_image_path, x=0, y=0, w=210)
-
-        temp_pdf_path = "{}".format(pdf_file_name)
-        pdf.output(temp_pdf_path)
-
-        await client.send_document(
-            chat_id=user_id,
-            document=temp_pdf_path,
-            caption=f"Here is your converted PDF: **{pdf_file_name}**"
-        )
-
-        # Clean up temporary image files
-        for image_file in image_files:
-            if os.path.exists(image_file):
-                os.remove(image_file)
-
-        clear_user_data(user_id, "docs")
-
-    except Exception as e:
-        await query.answer(f"Error while converting documents: {str(e)}", show_alert=True)
 
 from fpdf import FPDF
 import os
@@ -548,3 +482,70 @@ async def convert_txt_to_pdf(client, query, user_id):
 
     except Exception as e:
         await query.answer(f"Error while converting .txt to PDF: {str(e)}", show_alert=True)
+
+from pptx import Presentation
+from fpdf import FPDF
+import os
+
+async def convert_pptx_to_pdf(client, query, user_id):
+    for doc_path in user_docs[user_id]:
+        if doc_path.endswith('.pptx'):
+            try:
+                # Load the PPTX file
+                presentation = Presentation(doc_path)
+                pdf_path = doc_path.replace('.pptx', '.pdf')
+
+                # Create a PDF
+                pdf = FPDF()
+                pdf.set_auto_page_break(auto=True, margin=15)
+                pdf.set_font("Arial", size=12)
+
+                # Extract text from slides
+                for slide in presentation.slides:
+                    pdf.add_page()
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text"):
+                            pdf.multi_cell(0, 10, shape.text)
+
+                # Save as PDF
+                pdf.output(pdf_path)
+
+                # Send the PDF file to the user
+                await client.send_document(chat_id=query.from_user.id, document=pdf_path)
+                os.remove(pdf_path)
+
+            except Exception as e:
+                await query.message.reply_text(f"Failed to convert PPTX to PDF: {e}")
+
+from docx import Document
+from fpdf import FPDF
+import os
+
+async def convert_docs_to_pdf(client, query, user_id):
+    for doc_path in user_docs[user_id]:
+        if doc_path.endswith('.docx'):
+            try:
+                # Load the DOCX file
+                document = Document(doc_path)
+                pdf_path = doc_path.replace('.docx', '.pdf')
+
+                # Create a PDF
+                pdf = FPDF()
+                pdf.set_auto_page_break(auto=True, margin=15)
+                pdf.add_page()
+                pdf.set_font("Arial", size=12)
+
+                # Extract text from the DOCX file
+                for paragraph in document.paragraphs:
+                    pdf.multi_cell(0, 10, paragraph.text)
+
+                # Save as PDF
+                pdf.output(pdf_path)
+                
+                # Send the PDF file to the user
+                await client.send_document(chat_id=query.from_user.id, document=pdf_path)
+                os.remove(pdf_path)
+
+            except Exception as e:
+                await query.message.reply_text(f"Failed to convert DOCX to PDF: {e}")
+                
