@@ -430,7 +430,6 @@ async def protect_pdf(client, query, user_id):
 from fpdf import FPDF
 from pptx import Presentation
 from docx import Document
-from io import BytesIO
 
 async def convert_docs_to_pdf(client, query, user_id):
     await query.message.edit_text("Converting documents to PDF, please wait...")
@@ -473,14 +472,14 @@ async def convert_docs_to_pdf(client, query, user_id):
                         if hasattr(shape, "text"):
                             pdf.multi_cell(0, 10, sanitize_text(shape.text))
 
-        pdf_output = BytesIO()
-        pdf.output(pdf_output, "F")  # Correctly save to BytesIO
-        pdf_output.seek(0)
+        # Save directly in the server's current directory using {}
+        temp_pdf_path = "{}".format(pdf_file_name)
+        pdf.output(temp_pdf_path)
 
+        # Send the PDF file through Telegram
         await client.send_document(
             chat_id=user_id,
-            document=pdf_output,
-            file_name=pdf_file_name,
+            document=temp_pdf_path,
             caption=f"Here is your converted PDF: **{pdf_file_name}**"
         )
 
