@@ -30,12 +30,36 @@ from reportlab.lib.pagesizes import letter
 from docx import Document
 from fpdf import FPDF
 from pptx import Presentation
-
+from datetime import datetime, timedelta, date
+import pytz
 from pypdf import PdfReader, PdfWriter
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
+import os
+from io import BytesIO
+import img2pdf
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
+from pdf2image import convert_from_path
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+from reportlab.lib.pagesizes import letter
+
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+
 logger = logging.getLogger(__name__)
 
 BATCH_FILES = {}
+user_images = {}
+user_docs = {}
+user_pdfs = {}
+last_message = {}
+
+# Supported formats
+IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
+PDF_FORMATS = (".pdf",)
+DOC_FORMATS = (".txt", ".docx", ".pptx")
+
 
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
@@ -66,37 +90,49 @@ def formate_file_name(file_name):
 
 @Client.on_message(filters.command("clear") & filters.incoming)
 async def clear(client, message):
-    await clear_user_data(user_id, "pdfs", "images", "docs")
+    clear_user_data(user_id, "pdfs", "images", "docs")
 
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
-    await message.reply("hi")
+    if not await db.ud.find_one({"id": user_id}):
+            user_data = {
+                "id": user_id,
+                "joined": await dati()
+            }    
+            await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
+    
+    await message.reply("welcome")
 
 
-import os
-from io import BytesIO
-import img2pdf
-from PyPDF2 import PdfMerger, PdfReader, PdfWriter
-from pdf2image import convert_from_path
-from reportlab.pdfgen import canvas
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
-from reportlab.lib.pagesizes import letter
 
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+async def dati():
+    try:
+        kolkata_timezone = pytz.timezone('Asia/Kolkata')
+        kolkata_time = datetime.now(kolkata_timezone)
+        formatted_time = kolkata_time.strftime('%d/%m/%Y %H:%M:%S')  
+        return formatted_time 
+    except Exception as e:
+        # Handle exceptions appropriately, e.g., logging or raising
+        raise RuntimeError(f"Error in dati function: {str(e)}")
+
+@Client.on_message(filters.command("rate_me"))
+async def rate_me(client, message):
+    user_id = message.from_user.id
+    user_rating = await db.get_user_rating(user_id)
+    if user_rating is not None:
+        await message.reply_text(f'You have already rated this bot: {user_rating} stars.\nIf you want to re-rate, please use /re_rate_me.')
+    else:
+        await rating_poll(client, message, user_id, re_rating=False)
+
+@Client.on_message(filters.command("re_rate_me"))
+async def re_rate_me(client, message):
+    user_id = message.from_user.id
+    await rating_poll(client, message, user_id, re_rating=True)
+
+
 
 # Initialize storage for images, PDFs, and last messages
-user_images = {}
-user_docs = {}
-user_pdfs = {}
-last_message = {}
-
-# Supported formats
-IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
-PDF_FORMATS = (".pdf",)
-DOC_FORMATS = (".txt", ".docx", ".pptx")
 
 
 ### Collect images and PDFs separately ###
