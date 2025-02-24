@@ -315,7 +315,7 @@ async def create_pdf(client, query, user_id):
         
         user_data = await db.ud.find_one({"id": user_id})
         user_data["I2P"] = user_data.get("I2P", 0) + 1
-        await self.ud.update_one({"id": user_data["id"]}, {"$set": {"I2P": user_data["I2P"]}}, upsert=True)
+        await db.ud.update_one({"id": user_data["id"]}, {"$set": {"I2P": user_data["I2P"]}}, upsert=True)
 
         clear_user_data(user_id, "images")
 
@@ -355,7 +355,7 @@ async def extract_images(client, query, user_id, image_format):
                 
                 user_data = await db.ud.find_one({"id": user_id})
                 user_data["P2I"] = user_data.get("P2I", 0) + 1
-                await self.ud.update_one({"id": user_data["id"]}, {"$set": {"P2I": user_data["P2I"]}}, upsert=True)
+                await db.ud.update_one({"id": user_data["id"]}, {"$set": {"P2I": user_data["P2I"]}}, upsert=True)
    
                 clear_user_data(user_id, "pdfs")
                 
@@ -402,7 +402,7 @@ async def watermark_pdf(client, query, user_id, position):
             
             user_data = await db.ud.find_one({"id": user_id})
             user_data["PW"] = user_data.get("PW", 0) + 1
-            await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PW": user_data["PW"]}}, upsert=True)
+            await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PW": user_data["PW"]}}, upsert=True)
 
             clear_user_data(user_id, "pdfs")
 
@@ -471,7 +471,7 @@ async def merge_pdfs(client, query, user_id):
 
     user_data = await db.ud.find_one({"id": user_id})
     user_data["PM"] = user_data.get("PM", 0) + 1
-    await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PM": user_data["PM"]}}, upsert=True)
+    await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PM": user_data["PM"]}}, upsert=True)
 
 
     clear_user_data(user_id, "pdfs")
@@ -534,7 +534,7 @@ async def protect_pdf(client, query, user_id):
     
             user_data = await db.ud.find_one({"id": user_id})
             user_data["PP"] = user_data.get("PP", 0) + 1
-            await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PP": user_data["PP"]}}, upsert=True)
+            await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PP": user_data["PP"]}}, upsert=True)
 
 
 
