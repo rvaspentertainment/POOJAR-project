@@ -80,13 +80,13 @@ async def user_details(client, message):
         if user_data:
             details_message = (
                 f"User Details:\n\n"
-                f"Joined on: {user_data['joined']}\n"
-                f"ID: {user_data['id']}\n"
-                f"Img2PDF: {user_data['I2P', 0]}\n"
-                f"PDF Watermark: {user_data['PW', 0]}\n"
-                f"PDF2IMG: {user_data['P2I', 0]}\n"
-                f"PDF Protect: {user_data['PP', 0]}\n"
-                f"PDF Merge: {user_data['PM', 0]}"
+                f"Joined on: {user_data.get('joined', 'N/A')}\n"
+                f"ID: {user_data.get('id', 'N/A')}\n"
+                f"Img2PDF: {user_data.get('I2P', 0)}\n"
+                f"PDF Watermark: {user_data.get('PW', 0)}\n"
+                f"PDF2IMG: {user_data.get('P2I', 0)}\n"
+                f"PDF Protect: {user_data.get('PP', 0)}\n"
+                f"PDF Merge: {user_data.get('PM', 0)}"
             )
             await message.reply(details_message)
         else:
@@ -96,7 +96,6 @@ async def user_details(client, message):
         await message.reply("Invalid user ID. Please provide a valid numerical user ID.")
     except Exception as e:
         await message.reply(f"An error occurred: {str(e)}")
-
 def get_size(size):
     """Get size in readable format"""
 
