@@ -65,6 +65,36 @@ DOC_FORMATS = (".txt", ".docx", ".pptx")
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
+@Client.on_message(filters.command("user_details"))
+async def user_details(client, message):
+    try:
+        if len(message.command) > 1:
+            # Command with user_id argument: /user_details 12345
+            user_id = int(message.command[1])
+        else:
+            # Command without user_id argument: /user_details
+            user_id = message.from_user.id
+            
+        user_data = await db.ud.find_one({"id": user_id})
+        
+        if user_data:
+            details_message = (
+                f"User Details:\n\n"
+                f"Joined on: {user_data['joined']}\n"
+                f"ID: {user_data['id']}\n"
+                f"Img2PDF: {user_data['I2P']}\n"
+                f"PDF Watermark: {user_data['PW']}\n"
+                f"PDF2IMG: {user_data['P2I']}\n"
+                f"PDF Protect: {user_data['PP']}\n"        
+            )
+            await message.reply(details_message)
+        else:
+            await message.reply("User details not found.")
+            
+    except ValueError:
+        await message.reply("Invalid user ID. Please provide a valid numerical user ID.")
+    except Exception as e:
+        await message.reply(f"An error occurred: {str(e)}")
 
 def get_size(size):
     """Get size in readable format"""
@@ -282,6 +312,10 @@ async def create_pdf(client, query, user_id):
             file_name=pdf_file_name,
             caption=f"Here is your PDF: **{pdf_file_name}**"
         )
+        
+        user_data = await db.ud.find_one({"id": userid})
+        user_data["I2P"] = user_data.get("I2P", 0) + 1
+        await self.ud.update_one({"id": user_data["id"]}, {"$set": {"I2P": user_data["I2P"]}}, upsert=True)
 
         clear_user_data(user_id, "images")
 
@@ -319,8 +353,13 @@ async def extract_images(client, query, user_id, image_format):
                     document=img_bytes,
                     file_name=f"{pdf_name}_page_{idx+1}.{image_format}"
                 )
+                
+                user_data = await db.ud.find_one({"id": userid})
+                user_data["P2I"] = user_data.get("P2I", 0) + 1
+                await self.ud.update_one({"id": user_data["id"]}, {"$set": {"P2I": user_data["P2I"]}}, upsert=True)
+   
                 clear_user_data(user_id, "pdfs")
-
+                
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
 
@@ -361,6 +400,11 @@ async def watermark_pdf(client, query, user_id, position):
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
+            
+            user_data = await db.ud.find_one({"id": userid})
+            user_data["PW"] = user_data.get("PW", 0) + 1
+            await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PW": user_data["PW"]}}, upsert=True)
+
             clear_user_data(user_id, "pdfs")
 
             os.remove(output_path)
@@ -425,6 +469,7 @@ async def merge_pdfs(client, query, user_id):
     merger.close()
 
     await client.send_document(user_id, document=output_path)
+
     clear_user_data(user_id, "pdfs")
     os.remove(output_path)
 
