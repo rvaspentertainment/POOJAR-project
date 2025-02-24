@@ -85,7 +85,8 @@ async def user_details(client, message):
                 f"Img2PDF: {user_data['I2P']}\n"
                 f"PDF Watermark: {user_data['PW']}\n"
                 f"PDF2IMG: {user_data['P2I']}\n"
-                f"PDF Protect: {user_data['PP']}\n"        
+                f"PDF Protect: {user_data['PP']}\n"
+                f"PDF Merge: {user_data['PM']}"
             )
             await message.reply(details_message)
         else:
@@ -290,8 +291,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 ### Create PDF from Images ###
 async def create_pdf(client, query, user_id):
-    await query.message.edit_text("Creating your PDF, please wait...")
-
+    await query.message.edit_text("Converting images to PDF, please wait...")
     image_files = user_images.get(user_id, [])
     if not image_files:
         await query.answer("No images available for PDF creation.", show_alert=True)
@@ -337,8 +337,7 @@ async def select_image_format(client, query, user_id):
 
 ### Extract Images from PDF ###
 async def extract_images(client, query, user_id, image_format):
-    await query.message.edit_text("Extracting images, please wait...")
-
+    await query.message.edit_text("Extracting images from PDF, please wait...")
     try:
         for pdf_path in user_pdfs.get(user_id, []):
             images = convert_from_path(pdf_path, fmt=image_format, thread_count=4)
@@ -395,7 +394,7 @@ async def watermark_pdf(client, query, user_id, position):
 
                 os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
+            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
@@ -460,15 +459,20 @@ async def select_watermark_position(client, query, user_id):
 async def merge_pdfs(client, query, user_id):
     await query.message.edit_text("Merging PDFs, please wait...")
     merger = PdfMerger()
-
+    ask = await client.ask(user_id, "Send file name for merged PDF")
     for pdf_path in user_pdfs.get(user_id, []):
         merger.append(pdf_path)
 
-    output_path = "merged_output.pdf"
+    output_path = f"{ask}.pdf"
     merger.write(output_path)
     merger.close()
 
     await client.send_document(user_id, document=output_path)
+
+    user_data = await db.ud.find_one({"id": userid})
+    user_data["PM"] = user_data.get("PM", 0) + 1
+    await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PM": user_data["PM"]}}, upsert=True)
+
 
     clear_user_data(user_id, "pdfs")
     os.remove(output_path)
@@ -527,6 +531,13 @@ async def protect_pdf(client, query, user_id):
                     writer.write(output_file)
             
             await client.send_document(user_id, output_pdf_path, caption="Your password-protected PDF is ready!")
+    
+            user_data = await db.ud.find_one({"id": userid})
+            user_data["PP"] = user_data.get("PP", 0) + 1
+            await self.ud.update_one({"id": user_data["id"]}, {"$set": {"PP": user_data["PP"]}}, upsert=True)
+
+
+
             clear_user_data(user_id, "pdfs")
             
             os.remove(output_pdf_path)  # Corrected variable name
