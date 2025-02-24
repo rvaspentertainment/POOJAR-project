@@ -123,25 +123,155 @@ async def clear(client, message):
     clear_user_data(user_id, "pdfs", "images", "docs")
 
 
+import random
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from asyncio import sleep, TimeoutError
+
+# 100 Easy Kannada-related questions
+easy_questions = [
+    ("'ಕನ್ನಡ ರಾಜ್ಯೋತ್ಸವ' ಯಾವ ತಿಂಗಳಲ್ಲಿ ಆಚರಿಸಲಾಗುತ್ತದೆ?", ["ಅಕ್ಟೋಬರ್", "ನವೆಂಬರ್", "ಡಿಸೆಂಬರ್", "ಜನವರಿ"], "ನವೆಂಬರ್"),
+    ("ಕನ್ನಡದ ಮೊದಲ ಚಲನಚಿತ್ರ ಯಾವುದು?", ["ಸತಿ ಸುಲೋಚನ", "ಮಯೂರ", "ಭೂಕೈಲಾಸ", "ಬೆಡರ ಕಣ್ಣಪ್ಪ"], "ಸತಿ ಸುಲೋಚನ"),
+  
+    ("ಕನ್ನಡದ ರಾಜಭಾಷೆ ಸ್ಥಾನ ಪಡೆದ ವರ್ಷ ಯಾವುದು?", ["1963", "1960", "1956", "1970"], "1963"),
+    ("'ಬಸವಣ್ಣ' ಯಾರು?", ["ಕವಿ", "ಸಮಾಜ ಸುಧಾರಕ", "ರಾಜ", "ವಿಜ್ಞಾನಿ"], "ಸಮಾಜ ಸುಧಾರಕ"),
+    ("'ಮೈಸೂರು ದಸರಾದ' ಪ್ರಮುಖ ಧಾರ್ಮಿಕ ಕೇಂದ್ರ ಯಾವುದು?", ["ಚಾಮುಂಡಿ ಬೆಟ್ಟ", "ಬಾದಾಮಿ", "ಹಂಪಿ", "ಶೃಂಗೇರಿ"], "ಚಾಮುಂಡಿ ಬೆಟ್ಟ"),
+    
+    ("'ಕುವೆಂಪು' ಯವರ ಪೂರ್ಣ ಹೆಸರು ಏನು?", ["ಕುಪ್ಪಳ್ಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ", "ಕೇಶಿರಾಜ", "ರಾಮಚಂದ್ರ", "ಕೃಷ್ಣಮೂರ್ತಿ"], "ಕುಪ್ಪಳ್ಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ"),
+    
+    ("ಪ್ರಸಿದ್ಧ ಶ್ರೀ ರಾಮಾಯಣ ದರ್ಶನಂ ಪುಸ್ತಕವನ್ನು ಬರೆದವರು ಯಾರು?", 
+     ["ಕುಪ್ಪಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ", "ಕೇಶಿರಾಜ", "ರಾಮಚಂದ್ರ", "ಕೃಷ್ಣಮೂರ್ತಿ"], 
+     "ಕುಪ್ಪಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ"),
+
+    ("ಕನ್ನಡ ಧ್ವಜದ ಬಣ್ಣ ಯಾವುದು?", 
+     ["ಕೆಂಪು ಮತ್ತು ಹಳದಿ", "ನೀಲಿ ಮತ್ತು ಬಿಳಿ", "ಹಸಿರು ಮತ್ತು ಕೆಂಪು", "ಬಿಳಿ ಮತ್ತು ಕಪ್ಪು"], 
+     "ಕೆಂಪು ಮತ್ತು ಹಳದಿ"),
+
+    ("ಕರ್ನಾಟಕದ ಅತಿ ದೊಡ್ಡ ಜಿಲ್ಲೆ ಯಾವುದು?", 
+     ["ಬೆಳಗಾವಿ", "ಬೆಂಗಳೂರು ನಗರ", "ಮೈಸೂರು", "ತುಮಕೂರು"], 
+     "ಬೆಳಗಾವಿ"),
+
+    ("ಕರ್ನಾಟಕದ ಅತ್ಯಂತ ಚಿಕ್ಕ ಜಿಲ್ಲೆ ಯಾವುದು?", 
+     ["ಬೆಂಗಳೂರು ನಗರ", "ಚಿಕ್ಕಬಳ್ಳಾಪುರ", "ಮಂಡ್ಯ", "ಮಾಗಡಿ"], 
+     "ಬೆಂಗಳೂರು ನಗರ"),
+
+    ("'ಕುವೆಂಪು' ಯವರ ಪೂರ್ಣ ಹೆಸರು ಏನು?", 
+     ["ಕುಪ್ಪಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ", "ಕೇಶಿರಾಜ", "ರಾಮಚಂದ್ರ", "ಕೃಷ್ಣಮೂರ್ತಿ"], 
+     "ಕುಪ್ಪಳಿ ವೆಂಕಟಪ್ಪ ಪುಟ್ಟಪ್ಪ"),
+
+    ("ಯಾವ ದಿನವನ್ನು ಕರ್ನಾಟಕ ರಾಜ್ಯೋತ್ಸವ ಎಂದು ಆಚರಿಸಲಾಗುತ್ತದೆ?", 
+     ["1ನೇ ನವೆಂಬರ್", "15ನೇ ಆಗಸ್ಟ್", "26ನೇ ಜನವರಿ", "2ನೇ ಅಕ್ಟೋಬರ್"], 
+     "1ನೇ ನವೆಂಬರ್"),
+
+    ("ಕನ್ನಡ ಭಾಷೆಗೆ ಮೊದಲ ಜ್ಞಾನಪೀಠ ಪ್ರಶಸ್ತಿ ವಿಜೇತರು ಯಾರು?", 
+     ["ಕುವೆಂಪು", "ಬೇಂದ್ರೆ", "ರಾಣಿ ಚನ್ನಮ್ಮ", "ವಿಶ್ವೇಶ್ವರಯ್ಯ"], 
+     "ಕುವೆಂಪು"),
+
+    ("ಕರ್ನಾಟಕದಿಂದ ಭಾರತ್ ರತ್ನ ಪ್ರಶಸ್ತಿ ಪಡೆದ ಪ್ರಥಮ ವ್ಯಕ್ತಿ ಯಾರು?", 
+     ["ವಿಶ್ವೇಶ್ವರಯ್ಯ", "ಕುವೆಂಪು", "ಬಸವಣ್ಣ", "ಪುರಂದರ ದಾಸ"], 
+     "ವಿಶ್ವೇಶ್ವರಯ್ಯ"),
+
+    ("'ಕರ್ನಾಟಕ ಸಂಗೀತದ ಪಿತಾಮಹ' ಎಂದು ಕರೆಯಲ್ಪಡುವವರು ಯಾರು?", 
+     ["ಪುರಂದರ ದಾಸ", "ಕನಕದಾಸ", "ತೈಲಂಗ ಸ್ವಾಮಿ", "ವಿಷ್ಣು ನಾರಾಯಣ ಭಟ್"], 
+     "ಪುರಂದರ ದಾಸ"),
+
+    ("ಯಾವ ವರ್ಷದಲ್ಲಿ ಮೈಸೂರು ರಾಜ್ಯವನ್ನು ಕರ್ನಾಟಕ ಎಂದು ಮರುನಾಮಕರಣ ಮಾಡಲಾಯಿತು?", 
+     ["1973", "1956", "1980", "1991"], 
+     "1973"),
+
+    ("ಕರ್ನಾಟಕ ರಾಜ್ಯ ಮರ ಯಾವುದು?", 
+     ["ಶ್ರೀಗಂಧದ ಮರ", "ಬದಾಮಿ ಮರ", "ಪೀಪಲ್ ಮರ", "ಅಶ್ವತ್ಥ ಮರ"], 
+     "ಶ್ರೀಗಂಧದ ಮರ")
+]
+    # Add 90 more easy questions similarly...
+]
+
+# In-memory storage for quiz data
+quiz_data = {}
+
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
-    try:
-        user_id = message.from_user.id 
-        if not await db.is_user_exist(message.from_user.id):
-            await db.add_user(message.from_user.id, message.from_user.first_name)
-            await client.send_message(LOG_CHANNEL, script.LOG_TEXT.format(message.from_user.id, message.from_user.mention))
-   
-        if not await db.ud.find_one({"id": user_id}):
-            user_data = {
-                "id": user_id,
-                "joined": await dati()
-            }    
-            await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
-            
-            await message.reply("welcome")
-    except Exception as e:
-        await message.reply_text(f"An error occurred: {e}")
+    user_id = message.from_user.id
+    user_data = await db.ud.find_one({"id": user_id})
 
+    if user_data:
+        if user_data.get("verified", False):
+            await message.reply("ನೀವು ಈಗಾಗಲೇ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟ ಕನ್ನಡ ಬಳಕೆದಾರರು!")
+            return
+        elif user_data.get("verified", None) is False:
+            await message.reply("ನೀವು ಹಿಂದಿನ ಪರೀಕ್ಷೆಯಲ್ಲಿ ವಿಫಲರಾಗಿದ್ದೀರಿ. ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಲು ಅವಕಾಶವಿಲ್ಲ.")
+            return
+    else:
+        await db.ud.update_one({"id": user_id}, {"$set": {"joined": await dati(), "verified": None}}, upsert=True)
+
+    quiz_data[user_id] = {"current": 0, "score": 0, "questions": generate_random_questions()}
+    await message.reply("ಕನ್ನಡ ಪರಿಷ್ಕರಣೆ ಪರೀಕ್ಷೆ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ!")
+    await ask_question(client, message)
+
+def generate_random_questions():
+    return random.sample(easy_questions, 10)
+
+async def ask_question(client, message):
+    user_id = message.from_user.id
+    quiz = quiz_data.get(user_id)
+
+    if not quiz:
+        return
+
+    if quiz["current"] < 10:
+        question, options, correct_answer = quiz["questions"][quiz["current"]]
+        
+        # Shuffle options and keep track of the correct answer index
+        shuffled_options = options[:]
+        random.shuffle(shuffled_options)
+        correct_index = shuffled_options.index(correct_answer)
+        quiz["correct_index"] = correct_index
+
+        buttons = [[InlineKeyboardButton(opt, callback_data=f"quiz_{i}")] for i, opt in enumerate(shuffled_options)]
+        
+        sent_message = await message.reply(
+            question, 
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        
+        try:
+            await sleep(15)  # 15-second timer
+            await sent_message.delete()
+            await message.reply("ಸಮಯ ಮುಗಿದಿದೆ! ಮುಂದಿನ ಪ್ರಶ್ನೆಗೆ ಸಾಗುತ್ತಿದ್ದೇವೆ.")
+            quiz["current"] += 1
+            await ask_question(client, message)
+            
+        except TimeoutError:
+            await message.reply("ಸಮಯ ಮುಗಿದಿದೆ! ಪರೀಕ್ಷೆ ಬರೆದಿಲ್ಲ.")
+            await fail_verification(user_id, message)
+            
+    else:
+        score = quiz["score"]
+        if score >= 8:
+            await db.ud.update_one({"id": user_id}, {"$set": {"verified": True}}, upsert=True)
+            await message.reply(f"ಪರೀಕ್ಷೆ ಪೂರ್ಣಗೊಂಡಿತು! ನಿಮ್ಮ ಅಂಕಗಳು: {score}/10\nನೀವು ಕನ್ನಡ ಬಳಕೆದಾರರಾಗಿ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿದ್ದೀರಿ.")
+        else:
+            await fail_verification(user_id, message)
+
+async def fail_verification(user_id, message):
+    await db.ud.update_one({"id": user_id}, {"$set": {"verified": False}}, upsert=True)
+    await message.reply("ಕ್ಷಮಿಸಿ, ನೀವು ಕನ್ನಡ ಬಳಕೆದಾರರಲ್ಲ ಎಂದು ತೋರುತ್ತದೆ. ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಲು ಅವಕಾಶವಿಲ್ಲ.")
+    quiz_data.pop(user_id, None)
+
+@Client.on_callback_query(filters.regex(r"quiz_(\d+)"))
+async def quiz_answer(client, callback_query):
+    user_id = callback_query.from_user.id
+    quiz = quiz_data.get(user_id)
+
+    if not quiz:
+        return
+
+    selected_option = int(callback_query.data.split("_")[1])
+    if selected_option == quiz["correct_index"]:
+        quiz["score"] += 1
+
+    quiz["current"] += 1
+    await ask_question(client, callback_query.message)
 
 
 
