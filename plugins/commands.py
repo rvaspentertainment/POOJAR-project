@@ -96,6 +96,11 @@ async def clear(client, message):
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
     try:
+        user_id = message.from_user.id 
+        if not await db.is_user_exist(message.from_user.id):
+            await db.add_user(message.from_user.id, message.from_user.first_name)
+            await client.send_message(LOG_CHANNEL, script.LOG_TEXT.format(message.from_user.id, message.from_user.mention))
+   
         if not await db.ud.find_one({"id": user_id}):
             user_data = {
                 "id": user_id,
