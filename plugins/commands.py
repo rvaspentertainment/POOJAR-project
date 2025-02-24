@@ -82,11 +82,11 @@ async def user_details(client, message):
                 f"User Details:\n\n"
                 f"Joined on: {user_data['joined']}\n"
                 f"ID: {user_data['id']}\n"
-                f"Img2PDF: {user_data['I2P']}\n"
-                f"PDF Watermark: {user_data['PW']}\n"
-                f"PDF2IMG: {user_data['P2I']}\n"
-                f"PDF Protect: {user_data['PP']}\n"
-                f"PDF Merge: {user_data['PM']}"
+                f"Img2PDF: {user_data['I2P', 0]}\n"
+                f"PDF Watermark: {user_data['PW', 0]}\n"
+                f"PDF2IMG: {user_data['P2I', 0]}\n"
+                f"PDF Protect: {user_data['PP', 0]}\n"
+                f"PDF Merge: {user_data['PM', 0]}"
             )
             await message.reply(details_message)
         else:
@@ -515,7 +515,7 @@ async def protect_pdf(client, query, user_id):
             # Generate the output path properly
             output_pdf_path = os.path.join(
                 os.path.dirname(input_pdf_path), 
-                f"protected_{os.path.basename(input_pdf_path)}"
+                f"{os.path.basename(input_pdf_path)}"
             )
 
             # Apply password protection
