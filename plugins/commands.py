@@ -95,14 +95,18 @@ async def clear(client, message):
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
-    if not await db.ud.find_one({"id": user_id}):
+    try:
+        if not await db.ud.find_one({"id": user_id}):
             user_data = {
                 "id": user_id,
                 "joined": await dati()
             }    
             await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
-    
-    await message.reply("welcome")
+            
+            await message.reply("welcome")
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+
 
 
 
