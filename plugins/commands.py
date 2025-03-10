@@ -366,7 +366,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import os
 from io import BytesIO
 
