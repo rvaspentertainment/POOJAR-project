@@ -138,7 +138,7 @@ async def start(client, message):
             }    
             await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
             
-            await message.reply("welcome")
+        await message.reply("welcome")
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
 
@@ -283,6 +283,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
         position = query.data.split("_")[-1]
         await watermark_pdf(client, query, user_id, position)
 
+    elif query.data.startswith("watermark_type_"):
+        watermark_type = query.data.split("_")[-1]
+        await ask_watermark_details(client, query, user_id, watermark_type)
+
+    
     elif query.data == "merge_pdfs":
         await merge_pdfs(client, query, user_id)
 
