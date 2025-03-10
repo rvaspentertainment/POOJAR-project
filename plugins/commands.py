@@ -227,12 +227,11 @@ async def collect_files(bot, message):
                     buttons.append([InlineKeyboardButton("Convert TXT to PDF", callback_data="convert_txt")])
 
         if len(user_pdfs[user_id]) == 1:
-            buttons.append([InlineKeyboardButton("Extract Images", callback_data="extract_images")])
+            
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
             buttons.append([InlineKeyboardButton("Protect PDF", callback_data="prot_pdf")])  # New Button
         
-        if len(user_pdfs[user_id]) > 1:
-            buttons.append([InlineKeyboardButton("Merge PDFs", callback_data="merge_pdfs")])
+        
         
         sent_message = await message.reply_text(
             f"You have {len(user_images[user_id])} image(s) and {len(user_pdfs[user_id])} PDF(s) ready.\n\n"
