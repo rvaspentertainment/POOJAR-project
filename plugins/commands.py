@@ -281,7 +281,11 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     elif query.data.startswith("watermark_position_"):
         position = query.data.split("_")[-1]
-        await watermark_pdf(client, query, user_id, position)
+        watermark_data = user_watermark_data.get(user_id)  # Retrieve stored watermark data
+        if watermark_data:
+            await watermark_pdf(client, query, user_id, position, watermark_data)
+        else:
+            await query.message.edit_text("Error: Watermark data missing!")
 
     elif query.data.startswith("watermark_type_"):
         watermark_type = query.data.split("_")[-1]
@@ -366,13 +370,18 @@ async def extract_images(client, query, user_id, image_format):
         await message.reply_text(f"An error occurred: {e}")
 
 
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
-from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
 import os
-from io import BytesIO
+
+# Store watermark data for each user
+user_watermark_data = {}
+
+
+    
 
 async def ask_watermark_options(client, query, user_id):
     """ Ask users whether they want text, image, or both watermarks """
@@ -386,46 +395,48 @@ async def ask_watermark_options(client, query, user_id):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
+
 async def ask_watermark_details(client, query, user_id, watermark_type):
+    """ Ask for text or image based on selection """
     try:
-        """ Ask for text or image based on selection """
         watermark_data = {"text": None, "image": None}
-        
+
         if watermark_type in ["text", "both"]:
             response = await client.ask(user_id, "Send watermark text:")
             watermark_data["text"] = response.text or "Poojar Project"
-            
+
         if watermark_type in ["image", "both"]:
             response = await client.ask(user_id, "Send watermark image:")
             if response.photo:
                 photo = response.photo[-1]
                 file = await client.download_media(photo)
                 watermark_data["image"] = file
-                
-        await select_watermark_position(client, query, user_id, watermark_data)
-    
+
+        # Store watermark data for later use
+        user_watermark_data[user_id] = watermark_data
+
+        await select_watermark_position(client, query, user_id)
+
     except Exception as e:
-        await message.reply_text(f"An error occurred: {e}")
+        await query.message.reply_text(f"An error occurred: {e}")
 
 
-async def select_watermark_position(client, query, user_id, watermark_data):
-    try:
-        """ Ask users where they want the watermark """
-        buttons = [
-            [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
-            [InlineKeyboardButton("Center Cross", callback_data="watermark_position_center")],
-            [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")],
-            [InlineKeyboardButton("Cross (full page)", callback_data="watermark_position_cross")]
-        ]
-        await query.message.edit_text(
-            "Select where you want the watermark:",
-            reply_markup=InlineKeyboardMarkup(buttons)
-        )
-    except Exception as e:
-        await message.reply_text(f"An error occurred: {e}")
+async def select_watermark_position(client, query, user_id):
+    """ Ask users where they want the watermark """
+    buttons = [
+        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
+        [InlineKeyboardButton("Center Cross", callback_data="watermark_position_center")],
+        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")],
+        [InlineKeyboardButton("Cross (full page)", callback_data="watermark_position_cross")]
+    ]
+    await query.message.edit_text(
+        "Select where you want the watermark:",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
 
 async def watermark_pdf(client, query, user_id, position, watermark_data):
+    """ Process and apply watermark to PDFs """
     await query.message.edit_text("Watermarking PDF, please wait...")
     try:
         text = watermark_data.get("text")
@@ -457,7 +468,8 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-            
+
+            # Update watermark usage count
             user_data = await db.ud.find_one({"id": user_id})
             user_data["PW"] = user_data.get("PW", 0) + 1
             await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PW": user_data["PW"]}}, upsert=True)
@@ -465,11 +477,14 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
             clear_user_data(user_id, "pdfs")
 
             os.remove(output_path)
+
         await query.message.edit_text("Watermarking completed!")
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
+
 def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
+    """ Create a watermark PDF with text and optional image """
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
 
@@ -521,6 +536,7 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
+
 
 async def merge_pdfs(client, query, user_id):
     await query.message.edit_text("Merging PDFs, please wait...")
