@@ -387,38 +387,43 @@ async def ask_watermark_options(client, query, user_id):
     )
 
 async def ask_watermark_details(client, query, user_id, watermark_type):
-    """ Ask for text or image based on selection """
-    watermark_data = {"text": None, "image": None}
+    try:
+        """ Ask for text or image based on selection """
+        watermark_data = {"text": None, "image": None}
+        
+        if watermark_type in ["text", "both"]:
+            response = await client.ask(user_id, "Send watermark text:")
+            watermark_data["text"] = response.text or "Poojar Project"
+            
+        if watermark_type in ["image", "both"]:
+            response = await client.ask(user_id, "Send watermark image:")
+            if response.photo:
+                photo = response.photo[-1]
+                file = await client.download_media(photo)
+                watermark_data["image"] = file
+                
+        await select_watermark_position(client, query, user_id, watermark_data)
+    
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
 
-    if watermark_type in ["text", "both"]:
-        response = await client.ask(user_id, "Send watermark text:")
-        watermark_data["text"] = response.text or "Poojar Project"
-
-    if watermark_type in ["image", "both"]:
-        response = await client.ask(user_id, "Send watermark image:")
-        if response.photo:
-            photo = response.photo[-1]
-            file = await client.download_media(photo)
-            watermark_data["image"] = file
-
-    await select_watermark_position(client, query, user_id, watermark_data)
 
 async def select_watermark_position(client, query, user_id, watermark_data):
-    """ Ask users where they want the watermark """
-    buttons = [
-        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
-        [InlineKeyboardButton("Center", callback_data="watermark_position_center")],
-        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")],
-        [InlineKeyboardButton("Cross", callback_data="watermark_position_cross")]
-    ]
-    await query.message.edit_text(
-        "Select where you want the watermark:",
-        reply_markup=InlineKeyboardMarkup(buttons)
-    )
+    try:
+        """ Ask users where they want the watermark """
+        buttons = [
+            [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
+            [InlineKeyboardButton("Center Cross", callback_data="watermark_position_center")],
+            [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")],
+            [InlineKeyboardButton("Cross (full page)", callback_data="watermark_position_cross")]
+        ]
+        await query.message.edit_text(
+            "Select where you want the watermark:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
 
-    async def handle_position_selection(client, query):
-        position = query.data.split("_")[-1]
-        await watermark_pdf(client, query, user_id, position, watermark_data)
 
 async def watermark_pdf(client, query, user_id, position, watermark_data):
     await query.message.edit_text("Watermarking PDF, please wait...")
