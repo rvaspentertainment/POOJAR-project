@@ -275,8 +275,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
         image_format = query.data.split("_")[-1]
         await extract_images(client, query, user_id, image_format)
 
+    
     elif query.data == "watermark_pdf":
-        await select_watermark_position(client, query, user_id)
+        await ask_watermark_options(client, query, user_id)  # Start with watermark type selection
 
     elif query.data.startswith("watermark_position_"):
         position = query.data.split("_")[-1]
@@ -360,28 +361,79 @@ async def extract_images(client, query, user_id, image_format):
         await message.reply_text(f"An error occurred: {e}")
 
 
-import os
 from PyPDF2 import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.utils import ImageReader
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import os
+from io import BytesIO
 
-async def watermark_pdf(client, query, user_id, position):
+async def ask_watermark_options(client, query, user_id):
+    """ Ask users whether they want text, image, or both watermarks """
+    buttons = [
+        [InlineKeyboardButton("Text Only", callback_data="watermark_type_text")],
+        [InlineKeyboardButton("Image Only", callback_data="watermark_type_image")],
+        [InlineKeyboardButton("Text & Image", callback_data="watermark_type_both")]
+    ]
+    await query.message.edit_text(
+        "Select the type of watermark you want:",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+async def ask_watermark_details(client, query, user_id, watermark_type):
+    """ Ask for text or image based on selection """
+    watermark_data = {"text": None, "image": None}
+
+    if watermark_type in ["text", "both"]:
+        response = await client.ask(user_id, "Send watermark text:")
+        watermark_data["text"] = response.text or "Poojar Project"
+
+    if watermark_type in ["image", "both"]:
+        response = await client.ask(user_id, "Send watermark image:")
+        if response.photo:
+            photo = response.photo[-1]
+            file = await client.download_media(photo)
+            watermark_data["image"] = file
+
+    await select_watermark_position(client, query, user_id, watermark_data)
+
+async def select_watermark_position(client, query, user_id, watermark_data):
+    """ Ask users where they want the watermark """
+    buttons = [
+        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
+        [InlineKeyboardButton("Center", callback_data="watermark_position_center")],
+        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")],
+        [InlineKeyboardButton("Cross", callback_data="watermark_position_cross")]
+    ]
+    await query.message.edit_text(
+        "Select where you want the watermark:",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+
+    async def handle_position_selection(client, query):
+        position = query.data.split("_")[-1]
+        await watermark_pdf(client, query, user_id, position, watermark_data)
+
+async def watermark_pdf(client, query, user_id, position, watermark_data):
     await query.message.edit_text("Watermarking PDF, please wait...")
     try:
-        response = await client.ask(user_id, "Send watermark text:")
-        watermark_text = response.text or "Poojar Project"
+        text = watermark_data.get("text")
+        image_path = watermark_data.get("image")
 
         for pdf_path in user_pdfs.get(user_id, []):
             reader = PdfReader(pdf_path)
             writer = PdfWriter()
 
             for page_num, page in enumerate(reader.pages):
-                # Get page size
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
                 watermark_pdf_path = f"watermark_{page_num}.pdf"
-                create_watermark_pdf(watermark_pdf_path, watermark_text, position, page_width, page_height)
+                create_watermark_pdf(
+                    watermark_pdf_path, text, position, page_width, page_height, image_path
+                )
 
                 watermark_reader = PdfReader(watermark_pdf_path)
                 watermark_page = watermark_reader.pages[0]
@@ -391,7 +443,7 @@ async def watermark_pdf(client, query, user_id, position):
 
                 os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
+            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
@@ -408,50 +460,58 @@ async def watermark_pdf(client, query, user_id, position):
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
-### Generate Watermark PDF with dynamic sizing ###
-def create_watermark_pdf(file_path, text, position, page_width, page_height):
+def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
-        
-        # Adjust font size based on page dimensions
-        if position == "center":
-            font_size = min(page_width, page_height) * 0.1  # Proportional scaling
-        else:
-            font_size = min(page_width, page_height) * 0.03
 
-        c.setFont("Helvetica-Bold", font_size)
-        c.setFillColor(Color(0, 0, 0, alpha=0.5))  # 50% lighter
+        # Set font sizes
+        text_font_size = min(page_width, page_height) * 0.05  # Normal size for top/bottom
+        cross_font_size = min(page_width, page_height) * 0.08  # Medium size for cross
+        center_font_size = min(page_width, page_height) * 0.12  # Larger for center text
+
+        c.setFont("Helvetica-Bold", text_font_size)
+        c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
-            "top": (page_width / 2, page_height - (font_size + 10)),
+            "top": (page_width / 2, page_height - (text_font_size + 20)),
             "center": (page_width / 2, page_height / 2),
-            "bottom": (page_width / 2, font_size + 10)
+            "bottom": (page_width / 2, text_font_size + 20),
         }
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
-        c.saveState()
-        if position == "center":
-            c.translate(x, y)
-            c.rotate(45)
-            c.drawCentredString(0, 0, text)
-        else:
-            c.drawCentredString(x, y, text)
-        
-        c.restoreState()
+        # Draw watermark text
+        if text:
+            c.saveState()
+            if position == "center":
+                c.setFont("Helvetica-Bold", center_font_size)
+                c.translate(x, y)
+                c.rotate(45)
+                c.drawCentredString(0, 0, text)
+            elif position == "cross":
+                c.setFont("Helvetica-Bold", cross_font_size)
+                for i in range(-int(page_width / 100), int(page_width / 50)):
+                    for j in range(-int(page_height / 100), int(page_height / 50)):
+                        c.saveState()
+                        c.translate(i * 100, j * 100)
+                        c.rotate(45)
+                        c.drawCentredString(x, y, text)
+                        c.restoreState()
+            else:
+                c.drawCentredString(x, y, text)
+            c.restoreState()
+
+        # Add image watermark (if provided)
+        if image_path:
+            image = ImageReader(image_path)
+            img_width = page_width * 0.4
+            img_height = page_height * 0.4
+            img_x = (page_width - img_width) / 2
+            img_y = (page_height - img_height) / 2
+            c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
+
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-        
-async def select_watermark_position(client, query, user_id):
-    buttons = [
-        [InlineKeyboardButton("Top", callback_data="watermark_position_top")],
-        [InlineKeyboardButton("Center", callback_data="watermark_position_center")],
-        [InlineKeyboardButton("Bottom", callback_data="watermark_position_bottom")]
-    ]
-    await query.message.edit_text(
-        "Select where you want the watermark:",
-        reply_markup=InlineKeyboardMarkup(buttons)
-        )
 
 async def merge_pdfs(client, query, user_id):
     await query.message.edit_text("Merging PDFs, please wait...")
