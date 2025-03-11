@@ -120,8 +120,10 @@ def formate_file_name(file_name):
 
 @Client.on_message(filters.command("clear") & filters.incoming)
 async def clear(client, message):
-    clear_user_data(user_id, "pdfs", "images", "docs")
-
+    for file_path in user_pdfs.get(user_id, []):
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    user_pdfs[user_id] = []
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
@@ -177,7 +179,7 @@ async def re_rate_me(client, message):
 @Client.on_message(
     filters.private & 
     (filters.photo | 
-     (filters.document & filters.regex(r"\.(jpg|jpeg|png|pdf|txt|docx|pptx)$", flags=2))) & 
+     (filters.document & filters.regex(r"(?i)\.(jpg|jpeg|png|pdf|txt|docx|pptx)$"))) & 
     filters.incoming
 )
 async def collect_files(bot, message):
@@ -468,8 +470,6 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-
-            clear_user_data(user_id, "pdfs")
             
             os.remove(output_path)
 
