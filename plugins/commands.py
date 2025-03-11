@@ -517,13 +517,15 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                text_width = c.stringWidth(text, "Helvetica-Bold", cross_font_size) * 1.5  # Use text width
-                text_height = cross_font_size * 2  # Adjust spacing based on font size
-                for i in range(-int(page_width // text_width), int(page_width // text_width)):
-                    for j in range(-int(page_height // text_height), int(page_height // text_height)):
+                step_size_x = page_width * 0.3  # Adjust horizontal spacing
+                step_size_y = page_height * 0.15  # Adjust vertical spacing
+                for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
+                    for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
-                        c.translate(i * text_width, j * text_height)  # Adjusted step size
-                        c.rotate(45)
+                        x = i * step_size_x
+                        y = j * step_size_y
+                        c.translate(x, y)
+                        c.rotate(30)  # Adjust angle for better diagonal alignment
                         c.drawCentredString(0, 0, text)
                         c.restoreState()
 
