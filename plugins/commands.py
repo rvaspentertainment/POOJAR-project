@@ -434,6 +434,7 @@ async def select_watermark_position(client, query, user_id):
     )
 
 
+
 async def watermark_pdf(client, query, user_id, position, watermark_data):
     """ Process and apply watermark to PDFs """
     await query.message.edit_text("Watermarking PDF, please wait...")
@@ -449,7 +450,7 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                watermark_pdf_path = f"watermark_{page_num}.pdf"
+                watermark_pdf_path = f"watermark_{user_id}_{page_num}.pdf"
                 create_watermark_pdf(
                     watermark_pdf_path, text, position, page_width, page_height, image_path
                 )
@@ -457,7 +458,8 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 watermark_reader = PdfReader(watermark_pdf_path)
                 watermark_page = watermark_reader.pages[0]
 
-                page.merge_page(watermark_page)
+                # Fix for PyPDF2 v3+
+                page.merge_translated_page(watermark_page, 0, 0, expand=True)
                 writer.add_page(page)
 
                 os.remove(watermark_pdf_path)
@@ -468,29 +470,20 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
 
             await client.send_document(user_id, document=output_path)
 
-            # Update watermark usage count
-            user_data = await db.ud.find_one({"id": user_id})
-            user_data["PW"] = user_data.get("PW", 0) + 1
-            await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PW": user_data["PW"]}}, upsert=True)
-
-            clear_user_data(user_id, "pdfs")
-
             os.remove(output_path)
 
         await query.message.edit_text("Watermarking completed!")
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
-
 def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
     """ Create a watermark PDF with text and optional image """
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
 
-        # Set font sizes
-        text_font_size = min(page_width, page_height) * 0.05  # Normal size for top/bottom
-        cross_font_size = min(page_width, page_height) * 0.08  # Medium size for cross
-        center_font_size = min(page_width, page_height) * 0.12  # Larger for center text
+        text_font_size = min(page_width, page_height) * 0.05  
+        cross_font_size = min(page_width, page_height) * 0.08  
+        center_font_size = min(page_width, page_height) * 0.12  
 
         c.setFont("Helvetica-Bold", text_font_size)
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
@@ -502,7 +495,6 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         }
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
-        # Draw watermark text
         if text:
             c.saveState()
             if position == "center":
@@ -512,18 +504,18 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                for i in range(-int(page_width / 100), int(page_width / 50)):
-                    for j in range(-int(page_height / 100), int(page_height / 50)):
+                step_size = min(page_width, page_height) * 0.2  # Adjust spacing
+                for i in range(-int(page_width // step_size), int(page_width // step_size)):
+                    for j in range(-int(page_height // step_size), int(page_height // step_size)):
                         c.saveState()
-                        c.translate(i * 100, j * 100)
+                        c.translate(i * step_size, j * step_size)
                         c.rotate(45)
-                        c.drawCentredString(0, 0, text)  # Fix: Centered text properly
+                        c.drawCentredString(0, 0, text)
                         c.restoreState()
             else:
                 c.drawCentredString(x, y, text)
             c.restoreState()
 
-        # Add image watermark (if provided)
         if image_path:
             image = ImageReader(image_path)
             img_width = page_width * 0.4
@@ -535,7 +527,6 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-
 async def merge_pdfs(client, query, user_id):
     await query.message.edit_text("Merging PDFs, please wait...")
     merger = PdfMerger()
