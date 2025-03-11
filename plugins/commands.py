@@ -469,6 +469,8 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
 
             await client.send_document(user_id, document=output_path)
 
+            clear_user_data(user_id, "pdfs")
+            
             os.remove(output_path)
 
         await query.message.edit_text("Watermarking completed!")
