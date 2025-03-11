@@ -475,6 +475,10 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import Color
+from reportlab.lib.utils import ImageReader
+
 def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
     """ Create a watermark PDF with text and optional image """
     try:
@@ -503,11 +507,12 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                step_size = min(page_width, page_height) * 0.2  # Adjust spacing
-                for i in range(-int(page_width // step_size), int(page_width // step_size)):
-                    for j in range(-int(page_height // step_size), int(page_height // step_size)):
+                step_x = cross_font_size * 3  
+                step_y = cross_font_size * 2  
+                for i in range(-int(page_width // step_x), int(page_width // step_x)):
+                    for j in range(-int(page_height // step_y), int(page_height // step_y)):
                         c.saveState()
-                        c.translate(i * step_size, j * step_size)
+                        c.translate(i * step_x, j * step_y)
                         c.rotate(45)
                         c.drawCentredString(0, 0, text)
                         c.restoreState()
@@ -517,8 +522,10 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
 
         if image_path:
             image = ImageReader(image_path)
-            img_width = page_width * 0.4
-            img_height = page_height * 0.4
+            img_original_width, img_original_height = image.getSize()
+            scale_factor = min(page_width * 0.4 / img_original_width, page_height * 0.4 / img_original_height)
+            img_width = img_original_width * scale_factor
+            img_height = img_original_height * scale_factor
             img_x = (page_width - img_width) / 2
             img_y = (page_height - img_height) / 2
             c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
@@ -526,27 +533,6 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-async def merge_pdfs(client, query, user_id):
-    await query.message.edit_text("Merging PDFs, please wait...")
-    merger = PdfMerger()
-    ask = await client.ask(user_id, "Send file name for merged PDF")
-    for pdf_path in user_pdfs.get(user_id, []):
-        merger.append(pdf_path)
-
-    output_path = f"{ask}.pdf"
-    merger.write(output_path)
-    merger.close()
-
-    await client.send_document(user_id, document=output_path)
-
-    user_data = await db.ud.find_one({"id": user_id})
-    user_data["PM"] = user_data.get("PM", 0) + 1
-    await db.ud.update_one({"id": user_data["id"]}, {"$set": {"PM": user_data["PM"]}}, upsert=True)
-
-
-    clear_user_data(user_id, "pdfs")
-    os.remove(output_path)
-
 
 # Clear user data utility
 def clear_user_data(user_id, data_type="all"):
