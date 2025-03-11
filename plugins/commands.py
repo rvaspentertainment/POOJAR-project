@@ -484,43 +484,32 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
 
 
 def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
-    """ Create a watermark PDF with text and optional image """
+    """Create a watermark PDF with text and optional image"""
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
 
         # Set font sizes
         text_font_size = min(page_width, page_height) * 0.05  # Normal size for top/bottom
-        cross_font_size = min(page_width, page_height) * 0.08  # Medium size for cross
-        center_font_size = min(page_width, page_height) * 0.12  # Larger for center text
+        cross_font_size = min(page_width, page_height) * 0.12  # Larger for centered diagonal
 
         c.setFont("Helvetica-Bold", text_font_size)
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
             "top": (page_width / 2, page_height - (text_font_size + 20)),
-            "center": (page_width / 2, page_height / 2),
             "bottom": (page_width / 2, text_font_size + 20),
         }
-        x, y = pos.get(position, (page_width / 2, page_height / 2))
+        x, y = pos.get(position, (page_width / 2, page_height / 2))  # Default: center
 
         # Draw watermark text
         if text:
             c.saveState()
-            if position == "center":
-                c.setFont("Helvetica-Bold", center_font_size)
-                c.translate(x, y)
+            if position == "cross":  # Centered diagonal watermark
+                c.setFont("Helvetica-Bold", cross_font_size)
+                c.translate(page_width / 2, page_height / 2)
                 c.rotate(45)
                 c.drawCentredString(0, 0, text)
-            elif position == "cross":
-                c.setFont("Helvetica-Bold", cross_font_size)
-                for i in range(-int(page_width / 100), int(page_width / 50)):
-                    for j in range(-int(page_height / 100), int(page_height / 50)):
-                        c.saveState()
-                        c.translate(i * 100, j * 100)
-                        c.rotate(45)
-                        c.drawCentredString(x, y, text)
-                        c.restoreState()
-            else:
+            else:  # Top or Bottom
                 c.drawCentredString(x, y, text)
             c.restoreState()
 
