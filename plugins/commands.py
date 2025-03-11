@@ -474,6 +474,10 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
             os.remove(output_path)
 
         await query.message.edit_text("Watermarking completed!")
+        for file_path in user_pdfs.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_pdfs[user_id] = []
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
