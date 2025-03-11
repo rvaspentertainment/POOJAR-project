@@ -121,7 +121,7 @@ def formate_file_name(file_name):
 @Client.on_message(filters.command("clear") & filters.incoming)
 async def clear(client, message):
     try:
-        for file_path in user_pdfs.get(user_id, []):
+        for file_path in user_pdfs.get(message.from_user.id, []):
             if os.path.exists(file_path):
                 os.remove(file_path)
         user_pdfs[user_id] = []
@@ -447,14 +447,21 @@ async def select_watermark_position(client, query, user_id):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-watermark_pdf_path = {}
+import os
+from PyPDF2 import PdfReader, PdfWriter
+
+watermark_pdf_path = {}  # Dictionary to store watermark file paths per user
 
 async def watermark_pdf(client, query, user_id, position, watermark_data):
     """ Process and apply watermark to PDFs """
     await query.message.edit_text("Watermarking PDF, please wait...")
+
     try:
         text = watermark_data.get("text")
         image_path = watermark_data.get("image")
+
+        if user_id not in watermark_pdf_path:
+            watermark_pdf_path[user_id] = []
 
         for pdf_path in user_pdfs.get(user_id, []):
             reader = PdfReader(pdf_path)
@@ -464,38 +471,39 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                watermark_pdf_path[user_id].append()
-                create_watermark_pdf(
-                    watermark_pdf_path, text, position, page_width, page_height, image_path
-                )
+                # Generate unique watermark file for each page
+                watermark_file = f"watermark_{user_id}_{page_num}.pdf"
+                create_watermark_pdf(watermark_file, text, position, page_width, page_height, image_path)
 
-                watermark_reader = PdfReader(watermark_pdf_path)
+                watermark_pdf_path[user_id].append(watermark_file)
+
+                watermark_reader = PdfReader(watermark_file)
                 watermark_page = watermark_reader.pages[0]
 
-                # Fix for PyPDF2 v3+
-                page.merge_page(watermark_page)
+                # Merge watermark with page
+                page.merge_page(watermark_page)  # Use merge_transformed_page() for PyPDF2 v3.0.0+
                 writer.add_page(page)
-                os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
+                # Remove the watermark file immediately after use
+                os.remove(watermark_file)
+
+            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-            
             os.remove(output_path)
 
         await query.message.edit_text("Watermarking completed!")
+
+        # Remove original PDFs
         for file_path in user_pdfs.get(user_id, []):
             if os.path.exists(file_path):
                 os.remove(file_path)
         user_pdfs[user_id] = []
+
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
-
-from reportlab.pdfgen import canvas
-from reportlab.lib.colors import Color
-from reportlab.lib.utils import ImageReader
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
