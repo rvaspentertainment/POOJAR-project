@@ -481,28 +481,53 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 from reportlab.lib.utils import ImageReader
 
-def create_watermark_pdf(watermark_pdf_path, text, position, page_width, page_height, image_path):
-    """ Create a watermark PDF with full-page cross text and optional image """
+from reportlab.pdfgen import canvas
+from reportlab.lib.colors import Color
+from reportlab.lib.utils import ImageReader
+
+def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
+    """ Create a watermark PDF with text and optional image """
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
 
-        watermark_font_size = min(page_width, page_height) * 0.08  # Adjust size for visibility
-        step_x = watermark_font_size * 4  # Horizontal spacing between watermarks
-        step_y = watermark_font_size * 2  # Vertical spacing between watermarks
+        text_font_size = min(page_width, page_height) * 0.05  
+        cross_font_size = min(page_width, page_height) * 0.08  
+        center_font_size = min(page_width, page_height) * 0.12  
 
-        c.setFont("Helvetica-Bold", watermark_font_size)
+        c.setFont("Helvetica-Bold", text_font_size)
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
-        # Generate full-page cross watermark pattern
-        for x in range(-int(page_width // step_x), int(page_width // step_x) + 1):
-            for y in range(-int(page_height // step_y), int(page_height // step_y) + 1):
-                c.saveState()
-                c.translate(x * step_x, y * step_y)
-                c.rotate(30)  # Rotate text for diagonal effect
-                c.drawCentredString(page_width / 2, page_height / 2, text)
-                c.restoreState()
+        pos = {
+            "top": (page_width / 2, page_height - (text_font_size + 20)),
+            "center": (page_width / 2, page_height / 2),
+            "bottom": (page_width / 2, text_font_size + 20),
+        }
+        x, y = pos.get(position, (page_width / 2, page_height / 2))
 
-        # Add image watermark if provided
+        if text:
+            c.saveState()
+            if position == "center":
+                c.setFont("Helvetica-Bold", center_font_size)
+                c.translate(x, y)
+                c.rotate(45)
+                c.drawCentredString(0, 0, text)
+            elif position == "cross":
+                c.setFont("Helvetica-Bold", cross_font_size)
+                step_x = cross_font_size * 3  # Adjust horizontal spacing
+                step_y = cross_font_size * 1.2  # Keep smaller vertical spacing to avoid extra gaps
+                for i in range(-int(page_width // step_x), int(page_width // step_x)):
+                    for j in range(-int(page_height // step_y), int(page_height // step_y)):
+                        c.saveState()
+                        c.translate(i * step_x, j * step_y)
+                        c.rotate(45)
+                        c.drawCentredString(page_width / 2, page_height / 2, text)
+                        c.restoreState()
+            else:
+                c.drawCentredString(x, y, text)
+            c.restoreState()
+            
+            
+
         if image_path:
             image = ImageReader(image_path)
             img_original_width, img_original_height = image.getSize()
@@ -516,13 +541,10 @@ def create_watermark_pdf(watermark_pdf_path, text, position, page_width, page_he
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-# Clear user data utility
-def clear_user_data(user_id, data_type="all"):
-    if data_type in ("all", "images"):
-        for file_path in user_images.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_images[user_id] = []
+
+
+
+
 
     if data_type in ("all", "pdfs"):
         for file_path in user_pdfs.get(user_id, []):
