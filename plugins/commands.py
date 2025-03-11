@@ -120,10 +120,15 @@ def formate_file_name(file_name):
 
 @Client.on_message(filters.command("clear") & filters.incoming)
 async def clear(client, message):
-    for file_path in user_pdfs.get(user_id, []):
-        if os.path.exists(file_path):
-            os.remove(file_path)
-    user_pdfs[user_id] = []
+    try:
+        for file_path in user_pdfs.get(user_id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_pdfs[user_id] = []
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+
+
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
@@ -178,8 +183,7 @@ async def re_rate_me(client, message):
 ### Collect images and PDFs separately ###
 @Client.on_message(
     filters.private & 
-    (filters.photo | 
-     (filters.document & filters.regex(r"(?i)\.(jpg|jpeg|png|pdf|txt|docx|pptx)$"))) & 
+    (filters.photo | filters.document) & 
     filters.incoming
 )
 async def collect_files(bot, message):
@@ -193,25 +197,37 @@ async def collect_files(bot, message):
             user_pdfs[user_id] = []
         if user_id not in user_docs:
             user_docs[user_id] = []
-        
 
+        # Validate file type correctly
+        if message.document:
+            file_name = message.document.file_name.lower() if message.document.file_name else ""
+
+            # Define valid extensions
+            IMAGE_FORMATS = (".jpg", ".jpeg", ".png")
+            PDF_FORMATS = (".pdf",)
+            DOC_FORMATS = (".txt", ".docx", ".pptx")
+
+            # Categorize the file
+            if file_name.endswith(IMAGE_FORMATS):
+                file_path = await message.download()
+                user_images[user_id].append(file_path)
+            elif file_name.endswith(PDF_FORMATS):
+                file_path = await message.download()
+                user_pdfs[user_id].append(file_path)
+            elif file_name.endswith(DOC_FORMATS):
+                file_path = await message.download()
+                user_docs[user_id].append(file_path)
+            else:
+                await message.reply_text("Unsupported file type. Please send a valid file.")
+                return
+
+        # Delete the last message if exists
         if user_id in last_message and last_message[user_id]:
             try:
                 await last_message[user_id][-1].delete()
                 last_message[user_id].pop()
             except Exception as e:
                 print(f"Failed to delete the last message: {e}")
-
-        # Download the file
-        file_path = await message.download()
-
-        # Categorize the file
-        if file_path.lower().endswith(IMAGE_FORMATS):
-            user_images[user_id].append(file_path)
-        elif file_path.lower().endswith(PDF_FORMATS):
-            user_pdfs[user_id].append(file_path)
-        elif file_path.lower().endswith(DOC_FORMATS):
-            user_docs[user_id].append(file_path)
 
         # Create dynamic buttons based on uploaded files
         buttons = []
@@ -221,20 +237,16 @@ async def collect_files(bot, message):
 
         if user_docs[user_id]:
             for doc in user_docs[user_id]:
-                if doc.endswith('.docx'):
-                    buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
-                if doc.endswith('.pptx'):
+                if doc.endswith('.docx') or doc.endswith('.pptx'):
                     buttons.append([InlineKeyboardButton("Convert Documents to PDF", callback_data="convert_docs")])
                 elif doc.endswith('.txt'):
                     buttons.append([InlineKeyboardButton("Convert TXT to PDF", callback_data="convert_txt")])
 
         if len(user_pdfs[user_id]) == 1:
-            
             buttons.append([InlineKeyboardButton("Watermark PDF", callback_data="watermark_pdf")])
             buttons.append([InlineKeyboardButton("Protect PDF", callback_data="prot_pdf")])  # New Button
-        
-        
-        
+
+        # Send reply with buttons
         sent_message = await message.reply_text(
             f"You have {len(user_images[user_id])} image(s) and {len(user_pdfs[user_id])} PDF(s) ready.\n\n"
             "Choose an action to proceed.", 
