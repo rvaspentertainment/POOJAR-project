@@ -459,9 +459,8 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 watermark_page = watermark_reader.pages[0]
 
                 # Fix for PyPDF2 v3+
-                page.merge_translated_page(watermark_page, 0, 0, expand=True)
+                page.merge_page(watermark_page)
                 writer.add_page(page)
-
                 os.remove(watermark_pdf_path)
 
             output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
