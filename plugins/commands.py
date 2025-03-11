@@ -465,7 +465,7 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 writer.add_page(page)
                 os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
+            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
@@ -502,9 +502,9 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
-            "top": (page_width / 2, page_height - (text_font_size + 20)),
+            "top": (page_width / 2, page_height - (font_size + 20)),
             "center": (page_width / 2, page_height / 2),
-            "bottom": (page_width / 2, text_font_size + 20),
+            "bottom": (page_width / 2, font_size + 20),
         }
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
