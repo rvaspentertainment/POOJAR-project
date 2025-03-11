@@ -509,8 +509,8 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                step_x = cross_font_size * 3  
-                step_y = cross_font_size * 2  
+                step_x = cross_font_size * 3  # Adjust horizontal spacing
+                step_y = cross_font_size * 1.2  # Keep smaller vertical spacing to avoid extra gaps
                 for i in range(-int(page_width // step_x), int(page_width // step_x)):
                     for j in range(-int(page_height // step_y), int(page_height // step_y)):
                         c.saveState()
@@ -535,7 +535,6 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-
 # Clear user data utility
 def clear_user_data(user_id, data_type="all"):
     if data_type in ("all", "images"):
