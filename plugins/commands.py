@@ -550,17 +550,7 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
 
 
 
-    if data_type in ("all", "pdfs"):
-        for file_path in user_pdfs.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_pdfs[user_id] = []
-        
-    if data_type in ["all", "docs"]:
-        for file_path in user_pdfs.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_docs[user_id] = []
+    
         
 
 import os
