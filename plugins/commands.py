@@ -124,7 +124,7 @@ async def clear(client, message):
         for file_path in user_pdfs.get(message.from_user.id, []):
             if os.path.exists(file_path):
                 os.remove(file_path)
-        user_pdfs[user_id] = []
+        user_pdfs[message.from_user.id] = []
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
 
@@ -471,28 +471,32 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                # Generate unique watermark file for each page
-                watermark_file = f"watermark_{user_id}_{page_num}.pdf"
+                watermark_file = f"/tmp/watermark_{user_id}_{page_num}.pdf"  # Use absolute path for debugging
+
+                # Debugging check
                 create_watermark_pdf(watermark_file, text, position, page_width, page_height, image_path)
+                if not os.path.exists(watermark_file):
+                    raise FileNotFoundError(f"Watermark file was not created: {watermark_file}")
 
                 watermark_pdf_path[user_id].append(watermark_file)
 
                 watermark_reader = PdfReader(watermark_file)
                 watermark_page = watermark_reader.pages[0]
 
-                # Merge watermark with page
-                page.merge_page(watermark_page)  # Use merge_transformed_page() for PyPDF2 v3.0.0+
+                page.merge_page(watermark_page)  # Ensure compatibility with your PyPDF2 version
                 writer.add_page(page)
-
-                # Remove the watermark file immediately after use
-                os.remove(watermark_file)
 
             output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
+
+            # Remove watermark files after sending the final file
             os.remove(output_path)
+            for watermark_file in watermark_pdf_path[user_id]:
+                if os.path.exists(watermark_file):
+                    os.remove(watermark_file)
 
         await query.message.edit_text("Watermarking completed!")
 
