@@ -464,7 +464,7 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                watermark_pdf_path = f"watermark_{user_id}_{page_num}.pdf"
+                watermark_pdf_path = os.path.join(os.getcwd(), f"watermark_{user_id}_{page_num}.pdf")
                 create_watermark_pdf(
                     watermark_pdf_path, text, position, page_width, page_height, image_path
                 )
