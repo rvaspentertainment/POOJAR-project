@@ -381,7 +381,6 @@ import os
 user_watermark_data = {}
 
 
-    
 
 async def ask_watermark_options(client, query, user_id):
     """ Ask users whether they want text, image, or both watermarks """
@@ -408,8 +407,8 @@ async def ask_watermark_details(client, query, user_id, watermark_type):
         if watermark_type in ["image", "both"]:
             response = await client.ask(user_id, "Send watermark image:")
             if response.photo:
-                photo = response.photo[-1]
-                file = await client.download_media(photo)
+                photo = response.photo  # Fix: No need to use [-1]
+                file = await client.download_media(photo.file_id)  # Fix: Use .file_id
                 watermark_data["image"] = file
 
         # Store watermark data for later use
@@ -484,32 +483,43 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
 
 
 def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
-    """Create a watermark PDF with text and optional image"""
+    """ Create a watermark PDF with text and optional image """
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
 
         # Set font sizes
         text_font_size = min(page_width, page_height) * 0.05  # Normal size for top/bottom
-        cross_font_size = min(page_width, page_height) * 0.12  # Larger for centered diagonal
+        cross_font_size = min(page_width, page_height) * 0.08  # Medium size for cross
+        center_font_size = min(page_width, page_height) * 0.12  # Larger for center text
 
         c.setFont("Helvetica-Bold", text_font_size)
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
             "top": (page_width / 2, page_height - (text_font_size + 20)),
+            "center": (page_width / 2, page_height / 2),
             "bottom": (page_width / 2, text_font_size + 20),
         }
-        x, y = pos.get(position, (page_width / 2, page_height / 2))  # Default: center
+        x, y = pos.get(position, (page_width / 2, page_height / 2))
 
         # Draw watermark text
         if text:
             c.saveState()
-            if position == "cross":  # Centered diagonal watermark
-                c.setFont("Helvetica-Bold", cross_font_size)
-                c.translate(page_width / 2, page_height / 2)
+            if position == "center":
+                c.setFont("Helvetica-Bold", center_font_size)
+                c.translate(x, y)
                 c.rotate(45)
                 c.drawCentredString(0, 0, text)
-            else:  # Top or Bottom
+            elif position == "cross":
+                c.setFont("Helvetica-Bold", cross_font_size)
+                for i in range(-int(page_width / 100), int(page_width / 50)):
+                    for j in range(-int(page_height / 100), int(page_height / 50)):
+                        c.saveState()
+                        c.translate(i * 100, j * 100)
+                        c.rotate(45)
+                        c.drawCentredString(0, 0, text)  # Fix: Centered text properly
+                        c.restoreState()
+            else:
                 c.drawCentredString(x, y, text)
             c.restoreState()
 
@@ -525,7 +535,6 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.save()
     except Exception as e:
         print(f"Error creating watermark PDF: {e}")
-
 
 async def merge_pdfs(client, query, user_id):
     await query.message.edit_text("Merging PDFs, please wait...")
