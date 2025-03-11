@@ -481,7 +481,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 from reportlab.lib.utils import ImageReader
 
-def create_watermark_pdf(file_path, text, page_width, page_height, image_path=None):
+def create_watermark_pdf(watermark_pdf_path, text, position, page_width, page_height, image_path):
     """ Create a watermark PDF with full-page cross text and optional image """
     try:
         c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
