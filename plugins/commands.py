@@ -462,35 +462,37 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                watermark_pdf_path = f"watermark_{user_id}_{page_num}.pdf"
-                create_watermark_pdf(
-                    watermark_pdf_path, text, position, page_width, page_height, image_path
+                watermark_buffer = create_watermark_pdf(
+                    text, position, page_width, page_height, image_path
                 )
 
-                watermark_reader = PdfReader(watermark_pdf_path)
+                watermark_reader = PdfReader(watermark_buffer)
                 watermark_page = watermark_reader.pages[0]
 
                 # Fix for PyPDF2 v3+
                 page.merge_page(watermark_page)
                 writer.add_page(page)
-                os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
+            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-            
 
-Error during watermarking: [Errno 2] No such file or directory: 'watermark_591732965_0.pdf'
+    except Exception as e:
+        await query.message.edit_text(f"Error during watermarking: {e}")
+
+from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 from reportlab.lib.utils import ImageReader
+from PyPDF2 import PdfReader, PdfWriter
 
-def create_watermark_pdf(file_path, text, position, page_width, page_height, image_path=None):
-    """ Create a watermark PDF with text and optional image """
+def create_watermark_pdf(text, position, page_width, page_height, image_path=None):
+    """ Create a watermark PDF in memory """
     try:
-        c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
+        pdf_buffer = BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=(page_width, page_height))
 
         text_font_size = min(page_width, page_height) * 0.05  
         cross_font_size = min(page_width, page_height) * 0.08  
@@ -500,9 +502,9 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
-            "top": (page_width / 2, page_height - (font_size + 20)),
+            "top": (page_width / 2, page_height - (text_font_size + 20)),
             "center": (page_width / 2, page_height / 2),
-            "bottom": (page_width / 2, font_size + 20),
+            "bottom": (page_width / 2, text_font_size + 20),
         }
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
@@ -515,15 +517,15 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                step_size_x = page_width * 0.3  # Adjust horizontal spacing
-                step_size_y = page_height * 0.15  # Adjust vertical spacing
+                step_size_x = page_width * 0.3  
+                step_size_y = page_height * 0.15  
                 for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
                     for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
                         x = i * step_size_x
                         y = j * step_size_y
                         c.translate(x, y)
-                        c.rotate(30)  # Adjust angle for better diagonal alignment
+                        c.rotate(30)
                         c.drawCentredString(0, 0, text)
                         c.restoreState()
 
@@ -538,9 +540,11 @@ def create_watermark_pdf(file_path, text, position, page_width, page_height, ima
             c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
 
         c.save()
-    except Exception as e:
-        print(f"Error creating watermark PDF: {e}")
+        pdf_buffer.seek(0)  # Reset the buffer position for reading
+        return pdf_buffer
 
+    except Exception as e:
+        raise RuntimeError(f"Error creating watermark PDF: {e}")
 
 
 
