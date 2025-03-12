@@ -489,7 +489,7 @@ from reportlab.lib.utils import ImageReader
 from PyPDF2 import PdfReader, PdfWriter
 
 def create_watermark_pdf(text, position, page_width, page_height, image_path=None):
-    """ Create a watermark PDF in memory """
+    """Create a watermark PDF in memory"""
     try:
         pdf_buffer = BytesIO()
         c = canvas.Canvas(pdf_buffer, pagesize=(page_width, page_height))
@@ -501,11 +501,13 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
         c.setFont("Helvetica-Bold", text_font_size)
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
+        # Adjusted Y positions for visibility
         pos = {
-            "top": (page_width / 2, page_height - (text_font_size + 10)),
+            "top": (page_width / 2, page_height - (text_font_size * 2)),  
             "center": (page_width / 2, page_height / 2),
-            "bottom": (page_width / 2, text_font_size + 10),
+            "bottom": (page_width / 2, text_font_size * 2),
         }
+
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
         if text:
@@ -522,12 +524,16 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
                 for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
                     for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
-                        x = i * step_size_x
-                        y = j * step_size_y
-                        c.translate(x, y)
+                        cx = i * step_size_x
+                        cy = j * step_size_y
+                        c.translate(cx, cy)
                         c.rotate(30)
                         c.drawCentredString(0, 0, text)
                         c.restoreState()
+            else:
+                # Debug print coordinates to check placement
+                print(f"Placing text at: {x}, {y} for position {position}")
+                c.drawCentredString(x, y, text)
 
         if image_path:
             image = ImageReader(image_path)
@@ -540,13 +546,11 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
             c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
 
         c.save()
-        pdf_buffer.seek(0)  # Reset the buffer position for reading
+        pdf_buffer.seek(0)
         return pdf_buffer
-
     except Exception as e:
-        raise RuntimeError(f"Error creating watermark PDF: {e}")
-
-
+        print(f"Error in create_watermark_pdf: {e}")
+        return None
 
 
     
