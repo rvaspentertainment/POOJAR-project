@@ -502,7 +502,7 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
         c.setFillColor(Color(0, 0, 0, alpha=0.5))
 
         pos = {
-            "top": (page_width / 2, page_height - (text_ont_size + 10)),
+            "top": (page_width / 2, page_height - (text_font_size + 10)),
             "center": (page_width / 2, page_height / 2),
             "bottom": (page_width / 2, text_font_size + 10),
         }
