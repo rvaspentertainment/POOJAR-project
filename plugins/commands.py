@@ -447,21 +447,12 @@ async def select_watermark_position(client, query, user_id):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-import os
-from PyPDF2 import PdfReader, PdfWriter
-
-watermark_pdf_path = {}  # Dictionary to store watermark file paths per user
-
 async def watermark_pdf(client, query, user_id, position, watermark_data):
     """ Process and apply watermark to PDFs """
     await query.message.edit_text("Watermarking PDF, please wait...")
-
     try:
         text = watermark_data.get("text")
         image_path = watermark_data.get("image")
-
-        if user_id not in watermark_pdf_path:
-            watermark_pdf_path[user_id] = []
 
         for pdf_path in user_pdfs.get(user_id, []):
             reader = PdfReader(pdf_path)
@@ -471,44 +462,27 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 page_width = float(page.mediabox.width)
                 page_height = float(page.mediabox.height)
 
-                watermark_file = f"/tmp/watermark_{user_id}_{page_num}.pdf"  # Use absolute path for debugging
+                watermark_pdf_path = f"watermark_{user_id}_{page_num}.pdf"
+                create_watermark_pdf(
+                    watermark_pdf_path, text, position, page_width, page_height, image_path
+                )
 
-                # Debugging check
-                create_watermark_pdf(watermark_file, text, position, page_width, page_height, image_path)
-                if not os.path.exists(watermark_file):
-                    raise FileNotFoundError(f"Watermark file was not created: {watermark_file}")
-
-                watermark_pdf_path[user_id].append(watermark_file)
-
-                watermark_reader = PdfReader(watermark_file)
+                watermark_reader = PdfReader(watermark_pdf_path)
                 watermark_page = watermark_reader.pages[0]
 
-                page.merge_page(watermark_page)  # Ensure compatibility with your PyPDF2 version
+                # Fix for PyPDF2 v3+
+                page.merge_page(watermark_page)
                 writer.add_page(page)
+                os.remove(watermark_pdf_path)
 
-            output_path = f"{os.path.splitext(pdf_path)[0]}_watermarked.pdf"
+            output_path = f"{os.path.splitext(pdf_path)[0]}.pdf"
             with open(output_path, "wb") as f_out:
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
+            
 
-            # Remove watermark files after sending the final file
-            os.remove(output_path)
-            for watermark_file in watermark_pdf_path[user_id]:
-                if os.path.exists(watermark_file):
-                    os.remove(watermark_file)
-
-        await query.message.edit_text("Watermarking completed!")
-
-        # Remove original PDFs
-        for file_path in user_pdfs.get(user_id, []):
-            if os.path.exists(file_path):
-                os.remove(file_path)
-        user_pdfs[user_id] = []
-
-    except Exception as e:
-        await query.message.edit_text(f"Error during watermarking: {e}")
-
+Error during watermarking: [Errno 2] No such file or directory: 'watermark_591732965_0.pdf'
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
 from reportlab.lib.utils import ImageReader
