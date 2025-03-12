@@ -499,7 +499,7 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
         center_font_size = min(page_width, page_height) * 0.12  
 
         c.setFont("Helvetica-Bold", text_font_size)
-        c.setFillColor(Color(0, 0, 0, alpha=0.5))
+        c.setFillColor(Color(0, 0, 0, alpha=0.3))
 
         # Adjusted Y positions for visibility
         pos = {
@@ -519,8 +519,8 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
                 c.drawCentredString(0, 0, text)
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
-                step_size_x = page_width * 0.3  
-                step_size_y = page_height * 0.5  
+                step_size_x = page_width * 0.2
+                step_size_y = page_height * 0.3
                 for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
                     for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
