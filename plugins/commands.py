@@ -520,7 +520,7 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)
                 step_size_x = page_width * 0.3  
-                step_size_y = page_height * 0.15  
+                step_size_y = page_height * 0.5  
                 for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
                     for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
