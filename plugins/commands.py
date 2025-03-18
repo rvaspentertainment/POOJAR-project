@@ -520,8 +520,8 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
             elif position == "cross":
                 c.setFont("Helvetica-Bold", cross_font_size)             
                 text_width = c.stringWidth(text, "Helvetica-Bold", cross_font_size)
-                step_size_x = text_width  # No extra gap, text continues smoothly
-                step_size_y = 100  # Adjust vertical spacing to 3-5 cm
+                step_size_x = 100  # No extra gap, text continues smoothly
+                step_size_y = 250  # Adjust vertical spacing to 3-5 cm
                 for i in range(-int(page_width // step_size_x), int(page_width // step_size_x) + 2):
                     for j in range(-int(page_height // step_size_y), int(page_height // step_size_y) + 2):
                         c.saveState()
