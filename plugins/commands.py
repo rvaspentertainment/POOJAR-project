@@ -72,7 +72,6 @@ async def user_details(client, message):
             # Command with user_id argument: /user_details 12345
             user_id = int(message.command[1])
         else:
-            # Command without user_id argument: /user_details
             user_id = message.from_user.id
             
         user_data = await db.ud.find_one({"id": user_id})
@@ -417,6 +416,8 @@ async def ask_watermark_details(client, query, user_id, watermark_type):
         if watermark_type in ["text", "both"]:
             response = await client.ask(user_id, "Send watermark text:")
             watermark_data["text"] = response.text or "Poojar Project"
+            response.delete()
+        
 
         if watermark_type in ["image", "both"]:
             response = await client.ask(user_id, "Send watermark image:")
@@ -424,6 +425,7 @@ async def ask_watermark_details(client, query, user_id, watermark_type):
                 photo = response.photo  # Fix: No need to use [-1]
                 file = await client.download_media(photo.file_id)  # Fix: Use .file_id
                 watermark_data["image"] = file
+                response.delete()
 
         # Store watermark data for later use
         user_watermark_data[user_id] = watermark_data
@@ -478,7 +480,10 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-
+        for file_path in user_pdfs.get(message.from_user.id, []):
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        user_pdfs[message.from_user.id] = []
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
@@ -597,7 +602,10 @@ async def protect_pdf(client, query, user_id):
 
 
 
-            clear_user_data(user_id, "pdfs")
+            for file_path in user_pdfs.get(message.from_user.id, []):
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            user_pdfs[message.from_user.id] = []
             
             os.remove(output_pdf_path)  # Corrected variable name
 
