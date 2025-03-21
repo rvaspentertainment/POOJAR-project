@@ -485,8 +485,8 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import Color
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.utils import ImageReader
-from PyPDF2 import PdfReader, PdfWriter
 
 def create_watermark_pdf(text, position, page_width, page_height, image_path=None):
     """Create a watermark PDF in memory"""
@@ -510,6 +510,21 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
 
         x, y = pos.get(position, (page_width / 2, page_height / 2))
 
+        # **Draw Image First**
+        if image_path:
+            try:
+                image = ImageReader(image_path)
+                img_original_width, img_original_height = image.getSize()
+                scale_factor = min(page_width * 0.4 / img_original_width, page_height * 0.4 / img_original_height)
+                img_width = img_original_width * scale_factor
+                img_height = img_original_height * scale_factor
+                img_x = (page_width - img_width) / 2
+                img_y = (page_height - img_height) / 2
+                c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
+            except Exception as img_err:
+                print(f"Error loading image: {img_err}")
+
+        # **Draw Text After**
         if text:
             c.saveState()
             if position == "center":
@@ -532,33 +547,16 @@ def create_watermark_pdf(text, position, page_width, page_height, image_path=Non
                         c.rotate(45)  
                         c.drawCentredString(0, 0, text)
                         c.restoreState()
-
-
-        
             else:
-                print(f"Placing text at: {x}, {y} for position {position}")
                 c.drawCentredString(x, y, text)
 
-        if image_path:
-            image = ImageReader(image_path)
-            img_original_width, img_original_height = image.getSize()
-            scale_factor = min(page_width * 0.4 / img_original_width, page_height * 0.4 / img_original_height)
-            img_width = img_original_width * scale_factor
-            img_height = img_original_height * scale_factor
-            img_x = (page_width - img_width) / 2
-            img_y = (page_height - img_height) / 2
-            c.drawImage(image, img_x, img_y, img_width, img_height, mask="auto")
-
+        c.restoreState()
         c.save()
         pdf_buffer.seek(0)
         return pdf_buffer
     except Exception as e:
         print(f"Error in create_watermark_pdf: {e}")
         return None
-
-
-    
-        
 
 import os
 from PyPDF2 import PdfReader, PdfWriter
