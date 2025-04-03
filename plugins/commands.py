@@ -66,29 +66,65 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
+import asyncio 
 import requests 
-from datetime 
 import datetime 
-from pymongo 
- 
-
-client = MongoClient("mongodb://localhost:27017/") db = client["event_bot"] events_collection = db["events"]
-
- 
-
-EVENT_CATEGORIES = [ "Birthdays", "Deaths", "Historical Events", "Inventions & Discoveries", "Sports Events", "Political Events", "Cultural Events", "Natural Disasters", "Space Events", "Scientific Breakthroughs", "Technology Milestones", "Economic Events", "Military Events", "Religious Events", "Famous Speeches", "Awards & Achievements", "Environmental Events", "Legal & Justice Events", "Social Movements", "Entertainment Milestones", "Literary Events", "Aviation & Space Milestones", "Sports Records & Championships", "Cultural & Artistic Events", "Transportation & Infrastructure", "Historical Accidents & Tragedies", "Political Assassinations", "Scientific Missions", "First-time Events" ]
-
-def fetch_events(): today = datetime.today().strftime("%m-%d") response = requests.get(f"https://example.com/api/events/{today}") # Replace with actual API data = response.json() events_collection.update_one({"date": today}, {"$set": {"events": data}}, upsert=True)
-
-def get_events(update, context): today = datetime.today().strftime("%m-%d") data = events_collection.find_one({"date": today}) if not data: update.message.reply_text("No events found. Updating database...") fetch_events() data = events_collection.find_one({"date": today})
-
-keyboard = [[InlineKeyboardButton(category, callback_data=category)] for category in EVENT_CATEGORIES] reply_markup = InlineKeyboardMarkup(keyboard) update.message.reply_text("Choose an event type:", reply_markup=reply_markup) 
-
-def button_callback(update, context): query = update.callback_query query.answer() today = datetime.today().strftime("%m-%d") data = events_collection.find_one({"date": today}) category = query.data events = data.get("events", {}).get(category, ["No data available."]) message = f"{category} on this day:\n" + "\n".join(events) query.edit_message_text(text=message)
-
-def main(): updater = Updater("YOUR_TELEGRAM_BOT_TOKEN", use_context=True) dp = updater.dispatcher dp.add_handler(CommandHandler("events", get_events)) dp.add_handler(CallbackQueryHandler(button_callback)) updater.start_polling() updater.idle()
-
-if name == "main": main()
+import pymongo 
+from pyrogram import Client, filters 
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery 
+from bs4 import BeautifulSoup
 
 
-    
+client = pymongo.MongoClient("mongodb://localhost:27017/") db = client["on_this_day_db"] collection = db["events"]
+
+
+
+def get_on_this_day_events(): 
+    try:
+        today = datetime.datetime.now() 
+        url = f"https://en.wikipedia.org/wiki/{today.strftime('%B')}_{today.day}" 
+        response = requests.get(url) 
+        soup = BeautifulSoup(response.text, 'html.parser')
+        events = {
+            "Birthdays": [], "Deaths": [], "Historical Events": [], "Inventions & Discoveries": [],
+            "Sports Events": [], "Political Events": [], "Cultural Events": [], "Natural Disasters": [],
+            "Space Events": [], "Scientific Breakthroughs": [], "Technology Milestones": [], "Economic Events": [],
+            "Military Events": [], "Religious Events": [], "Famous Speeches": [], "Awards & Achievements": [],
+            "Environmental Events": [], "Legal & Justice Events": [], "Social Movements": [], "Entertainment Milestones": [],
+            "Literary Events": [], "Aviation & Space Milestones": [], "Sports Records & Championships": [], "Cultural & Artistic Events": [],
+            "Transportation & Infrastructure": [], "Historical Accidents & Tragedies": [], "Political Assassinations": [],
+            "Scientific Missions": [], "First-time Events": []
+        }
+        sections = soup.find_all("h2")
+        for section in sections:
+            title = section.text.strip()
+            for category in events.keys():
+                if category in title:
+                    event_list = section.find_next_sibling("ul")
+                    events[category] = [li.text for li in event_list.find_all("li")[:5]]
+
+collection.delete_many({})  # Clear previous day's data
+collection.insert_one(events)  # Store new events
+return events
+
+Function to fetch stored events
+
+def get_stored_events(): return collection.find_one({}, {"_id": 0})
+
+Command to get today's events
+
+@app.on_message(filters.command("today")) async def send_today_events(client, message): events = get_stored_events() if not events: await message.reply("No data available. Try again later.") return
+
+keyboard = InlineKeyboardMarkup(
+    [[InlineKeyboardButton(category, callback_data=category.replace(" ", "_"))] for category in events.keys()]
+)
+await message.reply("📅 Select a category:", reply_markup=keyboard)
+
+Callback to show event details
+
+@app.on_callback_query() async def cb_handler(client: Client, query: CallbackQuery): try: events = get_stored_events() category = query.data.replace("_", " ") text = "\n".join(events.get(category, [])) await query.message.edit(f"📜 {category} Today:\n{text}") except Exception as e: await client.send_message(query.from_user.id, f"An error occurred: {str(e)}")
+
+Auto-update function
+
+async def auto_update(): while True: get_on_this_day_events() await asyncio.sleep(86400)  # Update every 24 hours
+
