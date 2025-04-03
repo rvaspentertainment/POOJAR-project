@@ -63,4 +63,32 @@ async def start(client, message):
 async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
         await query.message.delete()
+
+
+
+import requests 
+from datetime 
+import datetime 
+from pymongo 
+ 
+
+client = MongoClient("mongodb://localhost:27017/") db = client["event_bot"] events_collection = db["events"]
+
+ 
+
+EVENT_CATEGORIES = [ "Birthdays", "Deaths", "Historical Events", "Inventions & Discoveries", "Sports Events", "Political Events", "Cultural Events", "Natural Disasters", "Space Events", "Scientific Breakthroughs", "Technology Milestones", "Economic Events", "Military Events", "Religious Events", "Famous Speeches", "Awards & Achievements", "Environmental Events", "Legal & Justice Events", "Social Movements", "Entertainment Milestones", "Literary Events", "Aviation & Space Milestones", "Sports Records & Championships", "Cultural & Artistic Events", "Transportation & Infrastructure", "Historical Accidents & Tragedies", "Political Assassinations", "Scientific Missions", "First-time Events" ]
+
+def fetch_events(): today = datetime.today().strftime("%m-%d") response = requests.get(f"https://example.com/api/events/{today}") # Replace with actual API data = response.json() events_collection.update_one({"date": today}, {"$set": {"events": data}}, upsert=True)
+
+def get_events(update, context): today = datetime.today().strftime("%m-%d") data = events_collection.find_one({"date": today}) if not data: update.message.reply_text("No events found. Updating database...") fetch_events() data = events_collection.find_one({"date": today})
+
+keyboard = [[InlineKeyboardButton(category, callback_data=category)] for category in EVENT_CATEGORIES] reply_markup = InlineKeyboardMarkup(keyboard) update.message.reply_text("Choose an event type:", reply_markup=reply_markup) 
+
+def button_callback(update, context): query = update.callback_query query.answer() today = datetime.today().strftime("%m-%d") data = events_collection.find_one({"date": today}) category = query.data events = data.get("events", {}).get(category, ["No data available."]) message = f"{category} on this day:\n" + "\n".join(events) query.edit_message_text(text=message)
+
+def main(): updater = Updater("YOUR_TELEGRAM_BOT_TOKEN", use_context=True) dp = updater.dispatcher dp.add_handler(CommandHandler("events", get_events)) dp.add_handler(CallbackQueryHandler(button_callback)) updater.start_polling() updater.idle()
+
+if name == "main": main()
+
+
     
