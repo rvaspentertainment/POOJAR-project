@@ -74,12 +74,9 @@ from gtts import gTTS
 from langdetect import detect
 from pydub import AudioSegment
 
-@bot.on_message(filters.command("start"))
-async def start(client, message: Message):
-    await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
 
 # Text Message Handler
-@Client.on_message(filters.text & ~filters.command)
+@Client.on_message(filters.text)
 async def handle_text(client, message: Message):
     text = message.text
     try:
