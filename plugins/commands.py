@@ -8,7 +8,7 @@ import random
 import asyncio
 from validators import domain
 from Script import script
-from plugins.dbusers import db
+from plugins.dbusers import db, self
 from pyrogram import Client, filters, enums
 from plugins.users_api import get_user, update_user_info
 from pyrogram.errors import ChatAdminRequired, FloodWait
@@ -352,7 +352,7 @@ async def handle_speed(_, query: CallbackQuery):
         user_data = {
             "id": 12345,     # unique user ID
             "mp3": data.get("mp3", 0) + 1,
-            "char": f"data.get("char", 0) + {len(text)}"
+            "char": data.get("char", 0) + len(text)
         }
         await self.ud.update_one(
             {"id": user_data["id"]},
