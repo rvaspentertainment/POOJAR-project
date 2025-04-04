@@ -64,3 +64,48 @@ async def cb_handler(client: Client, query: CallbackQuery):
     if query.data == "close_data":
         await query.message.delete()
     
+
+
+import os
+from pyrogram import Client, filters
+from pyrogram.types import Message
+from gtts import gTTS
+from langdetect import detect
+
+
+
+# Mapping detected languages to gTTS supported languages
+LANGUAGE_MAP = {
+    "kn": "kn",  # Kannada
+    "en": "en",  # English
+    "hi": "hi",  # Hindi
+    "ta": "ta",  # Tamil
+    "te": "te",  # Telugu
+    "mr": "mr",  # Marathi
+    "bn": "bn",  # Bengali
+    "gu": "gu",  # Gujarati
+    "pa": "pa",  # Punjabi
+    "ml": "ml",  # Malayalam
+    "or": "or",  # Odia
+    "ur": "ur",  # Urdu
+    "as": "as",  # Assamese
+    "sa": "sa"   # Sanskrit
+}
+
+
+
+# Text Message Handler
+@Client.on_message(filters.text & ~filters.command)
+async def handle_text(client, message: Message):
+    text = message.text
+    try:
+        detected_lang = detect(text)
+        lang_code = LANGUAGE_MAP.get(detected_lang, "en")  # Default to English if unsupported
+        
+        tts = gTTS(text, lang=lang_code)
+        file_path = f"tts_{message.chat.id}.mp3"
+        tts.save(file_path)
+        await message.reply_voice(voice=file_path, caption=f"Detected language: {detected_lang} ({lang_code})\nHere is your audio!")
+        os.remove(file_path)
+    except Exception as e:
+        await message.reply_text(f"Error: {str(e)}")
