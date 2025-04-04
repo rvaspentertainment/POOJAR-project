@@ -51,6 +51,36 @@ def formate_file_name(file_name):
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ0
 
+@Client.on_message(filters.command("user_details"))
+async def user_details(client, message):
+    try:
+        if len(message.command) > 1:
+            # Command with user_id argument: /user_details 12345
+            user_id = int(message.command[1])
+        else:
+            # Command without user_id argument: /user_details
+            user_id = message.from_user.id
+            
+        user_data = await db.get_user_details(user_id)
+        
+        if user_data:
+            details_message = (
+                f"User Details:\n\n"
+                f"Joined on: {user_data['joined']}\n"          
+                f"ID: {user_data['id']}\n"
+                f"Total Text to Speech converted: {user_data['mp3']}\n"          
+                f"Total mp3 rub time: {user_data['run']}\n"
+                f"Total text characters used: {user_data['char']}\n"
+                                  
+            )
+            await message.reply(details_message)
+        else:
+            await message.reply("User details not found.")
+            
+    except ValueError:
+        await message.reply("Invalid user ID. Please provide a valid numerical user ID.")
+    except Exception as e:
+        await message.reply(f"An error occurred: {str(e)}")
 
 
 
