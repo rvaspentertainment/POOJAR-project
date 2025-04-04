@@ -318,7 +318,21 @@ async def handle_speed(_, query: CallbackQuery):
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
         await query.message.reply_voice(voice=filepath, caption=caption)
-
+        user_data = {
+            "id": 12345,     # unique user ID
+            "mp3": 0,
+            "run": 0,
+            "char": 0
+        }
+        await self.ud.update_one(
+            {"id": user_data["id"]},
+            {"$set": {
+                "mp3": user_data["mp3"],
+                "run": user_data["run"],
+                "char": user_data["char"]
+            }},
+            upsert=True
+        )
         os.remove(filepath)
         user_data.pop(user_id, None)
 
