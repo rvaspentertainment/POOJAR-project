@@ -75,7 +75,10 @@ from bs4 import BeautifulSoup
 
 
 
-
+MONGO_URI = "mongodb+srv://RVCJ123:RVCJ123@cluster0.ynftx.mongodb.net/?retryWrites=true&w=majority"
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["event_bot"]
+events_collection = db["events"]
 
 
 classifier = pipeline("zero-shot-classification",
@@ -148,10 +151,14 @@ async def callback_handler(client: Client, query: CallbackQuery):
             response = "No events found for this category." 
             await query.message.edit_text(response)  
 
-@Client.on_message(filters.command("daily_task()")) 
-async def daily_task(client, message):  
-    today = datetime.datetime.now().strftime("%B_%d") 
-    events = fetch_events_from_wikipedia(today), store_events(today, events)
+@Client.on_message(filters.command("daily_task")) 
+async def daily_task(client, message): 
+    try:
+        today = datetime.datetime.now().strftime("%B_%d") 
+        events = fetch_events_from_wikipedia(today), store_events(today, events)
+    except Exception as e:
+        await client.send_message(userid, f"An error occurred in `can_take_movie`: {str(e)}")
+        
 
 Client.run(daily_task()) 
 Client.run(post_daily_events()) 
