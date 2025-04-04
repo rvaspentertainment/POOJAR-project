@@ -84,7 +84,7 @@ async def cancel_button(_, query: CallbackQuery):
     await query.message.edit("Cancelled. Send me text again to start over.")
 
 # Handle text
-@bot.on_message(filters.text)
+@Client.on_message(filters.text)
 async def handle_text(_, message: Message):
     text = message.text
     user_id = message.from_user.id
