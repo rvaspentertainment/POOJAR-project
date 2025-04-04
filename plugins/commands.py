@@ -21,7 +21,7 @@ import base64
 from urllib.parse import quote_plus
 from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
-
+from gtts.lang import tts_langs
 BATCH_FILES = {}
 
 # Don't Remove Credit Tg - @VJ_Botz
@@ -221,6 +221,48 @@ async def region_europe(_, query: CallbackQuery):
 
 
 
+
+
+# Store this globally or dynamically cache as needed
+ALL_LANGS = sorted(tts_langs().items(), key=lambda x: x[1])
+CHUNK_SIZE = 20
+
+def get_lang_buttons(page: int = 0):
+    start = page * CHUNK_SIZE
+    end = start + CHUNK_SIZE
+    rows = []
+    for i in range(start, min(end, len(ALL_LANGS)), 2):
+        row = []
+        for j in range(2):
+            if i + j < len(ALL_LANGS):
+                code, name = ALL_LANGS[i + j]
+                row.append(InlineKeyboardButton(name, callback_data=f"langpick_{code}"))
+        rows.append(row)
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton("⬅️ Back", callback_data=f"region_page_{page - 1}"))
+    if end < len(ALL_LANGS):
+        nav_buttons.append(InlineKeyboardButton("➡️ More", callback_data=f"region_page_{page + 1}"))
+    if nav_buttons:
+        rows.append(nav_buttons)
+    return InlineKeyboardMarkup(rows)
+
+@Client.on_callback_query(filters.regex("region_all"))
+async def region_all(_, query: CallbackQuery):
+    try:
+        await query.message.delete()
+        await query.message.reply("Select a language:", reply_markup=get_lang_buttons(0))
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `region_all`: `{str(e)}`")
+
+@Client.on_callback_query(filters.regex(r"region_page_(\d+)"))
+async def region_page(_, query: CallbackQuery):
+    try:
+        page = int(query.data.split("_")[-1])
+        await query.message.edit_text("Select a language:", reply_markup=get_lang_buttons(page))
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `region_page`: `{str(e)}`")
 
 
 # Save language selected manually
