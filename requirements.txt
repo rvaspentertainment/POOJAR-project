@@ -21,3 +21,4 @@ pyrogram
 tgcrypto
 gTTS
 pydub
+langdetect
