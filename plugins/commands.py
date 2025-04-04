@@ -73,7 +73,12 @@ from pyrogram.types import Message
 from gtts import gTTS
 from langdetect import detect
 from pydub import AudioSegment
+from pydub import AudioSegment
+from pydub.utils import which
 
+# Set ffmpeg paths manually
+AudioSegment.converter = which("ffmpeg")
+AudioSegment.ffprobe = which("ffprobe")
 
 # Text Message Handler
 @Client.on_message(filters.text)
