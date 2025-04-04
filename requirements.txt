@@ -27,4 +27,4 @@ ffprobe
 imageio-ffmpeg
 gTTS
 ffmpeg
-whisper
+git+https://github.com/openai/whisper.git
