@@ -297,3 +297,106 @@ async def handle_speed(_, query: CallbackQuery):
 
     except Exception as e:
         await query.message.reply_text(f"An error occurred in `speed`: `{str(e)}`")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import os
+import whisper
+import ffmpeg
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+
+model = whisper.load_model("base")  # or "small", "medium", "large"
+
+if not os.path.exists("audios"):
+    os.mkdir("audios")
+if not os.path.exists("transcriptions"):
+    os.mkdir("transcriptions")
+
+@Client.on_message(filters.voice | filters.audio)
+async def transcribe_audio(client, message):
+    audio = message.voice or message.audio
+    file_path = f"audios/{message.chat.id}_{message.id}.ogg"
+
+    await message.download(file_path)
+    wav_path = file_path.replace(".ogg", ".wav")
+
+    try:
+        ffmpeg.input(file_path).output(wav_path).run(overwrite_output=True)
+    except Exception as e:
+        await message.reply_text(f"FFmpeg error: {e}")
+        return
+
+    msg = await message.reply_text("❤⚪⚪⚪⚪⚪⚪⚪⚪⚪ 10%\nDetecting language...")
+    result = model.transcribe(wav_path, language=None)
+
+    lang = result['language']
+    await msg.edit(f"❤❤⚪⚪⚪⚪⚪⚪⚪⚪ 20%\nDetected Language: `{lang}`. Is this correct?",
+                   reply_markup=InlineKeyboardMarkup([
+                       [InlineKeyboardButton("✅ Yes", callback_data=f"yes|{wav_path}"),
+                        InlineKeyboardButton("❌ No", callback_data=f"no|{wav_path}")]
+                   ]))
+
+@Client.on_callback_query()
+async def handle_button(client, callback):
+    data = callback.data.split("|")
+    action = data[0]
+    wav_path = data[1]
+
+    if action == "yes":
+        await callback.message.edit_text("❤❤❤⚪⚪⚪⚪⚪⚪⚪ 30%\nTranscribing audio...")
+        result = model.transcribe(wav_path)
+        text = result['text'].strip()
+
+        txt_file = f"transcriptions/{os.path.basename(wav_path).replace('.wav', '.txt')}"
+        with open(txt_file, "w", encoding='utf-8') as f:
+            f.write(text)
+
+        await callback.message.edit_text(f"❤❤❤❤❤❤❤❤❤❤ 100%\n**Transcription Complete:**\n\n`{text}`",
+                                         reply_markup=InlineKeyboardMarkup([
+                                             [InlineKeyboardButton("📝 Download .txt", callback_data=f"download|{txt_file}")]
+                                         ]))
+
+    elif action == "no":
+        await callback.message.edit_text("🌐 Please send correct language code (e.g. `en`, `kn`, `hi`)")
+
+    elif action == "download":
+        file_path = data[1]
+        await callback.message.reply_document(file_path)
+
+@Client.on_message(filters.text & filters.reply)
+async def manual_lang(client, message):
+    if message.reply_to_message and "Please send correct language code" in message.reply_to_message.text:
+        lang_code = message.text.strip()
+        last_wav = sorted(os.listdir("audios"))[-1]
+        wav_path = f"audios/{last_wav}"
+
+        msg = await message.reply("❤❤⚪⚪⚪⚪⚪⚪⚪⚪ 20%\nTranscribing with manual language...")
+        result = model.transcribe(wav_path, language=lang_code)
+
+        text = result['text'].strip()
+        txt_file = f"transcriptions/{last_wav.replace('.wav', '.txt')}"
+        with open(txt_file, "w", encoding='utf-8') as f:
+            f.write(text)
+
+        await msg.edit(f"❤❤❤❤❤❤❤❤❤❤ 100%\n**Transcription Complete:**\n\n`{text}`",
+                       reply_markup=InlineKeyboardMarkup([
+                           [InlineKeyboardButton("📝 Download .txt", callback_data=f"download|{txt_file}")]
+                       ]))
+
