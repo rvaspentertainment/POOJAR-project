@@ -22,3 +22,6 @@ tgcrypto
 gTTS
 pydub
 langdetect
+ffmpeg
+ffprobe
+imageio-ffmpeg
