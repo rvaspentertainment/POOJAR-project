@@ -66,65 +66,92 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 
-import asyncio 
-import requests 
 import datetime 
-import pymongo 
+import requests 
+from transformers import pipeline
 from pyrogram import Client, filters 
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery 
 from bs4 import BeautifulSoup
 
 
-client = pymongo.MongoClient("mongodb://localhost:27017/") db = client["on_this_day_db"] collection = db["events"]
 
 
 
-def get_on_this_day_events(): 
-    try:
-        today = datetime.datetime.now() 
-        url = f"https://en.wikipedia.org/wiki/{today.strftime('%B')}_{today.day}" 
-        response = requests.get(url) 
-        soup = BeautifulSoup(response.text, 'html.parser')
-        events = {
-            "Birthdays": [], "Deaths": [], "Historical Events": [], "Inventions & Discoveries": [],
-            "Sports Events": [], "Political Events": [], "Cultural Events": [], "Natural Disasters": [],
-            "Space Events": [], "Scientific Breakthroughs": [], "Technology Milestones": [], "Economic Events": [],
-            "Military Events": [], "Religious Events": [], "Famous Speeches": [], "Awards & Achievements": [],
-            "Environmental Events": [], "Legal & Justice Events": [], "Social Movements": [], "Entertainment Milestones": [],
-            "Literary Events": [], "Aviation & Space Milestones": [], "Sports Records & Championships": [], "Cultural & Artistic Events": [],
-            "Transportation & Infrastructure": [], "Historical Accidents & Tragedies": [], "Political Assassinations": [],
-            "Scientific Missions": [], "First-time Events": []
-        }
-        sections = soup.find_all("h2")
-        for section in sections:
-            title = section.text.strip()
-            for category in events.keys():
-                if category in title:
-                    event_list = section.find_next_sibling("ul")
-                    events[category] = [li.text for li in event_list.find_all("li")[:5]]
 
-collection.delete_many({})  # Clear previous day's data
-collection.insert_one(events)  # Store new events
-return events
+classifier = pipeline("zero-shot-classification",
+model="facebook/bart-large-mnli")
+EVENT_TYPES = [ "Birthday", "Death", "Historical Event", "Sports Event", "Invention & Discovery", "Political Event", "Space Event", "Scientific Breakthrough", "Technology Milestone", "Cultural Event", "Natural Disaster", "Religious Event", "Economic Event", "Military Event", "Famous Speech", "Entertainment Milestone", "Social Movement", "Literary Event", "Transportation & Infrastructure", "Scientific Mission", "First-time Event", "Unknown" ]
 
-Function to fetch stored events
 
-def get_stored_events(): return collection.find_one({}, {"_id": 0})
+def classify_event(event_text):
+    result = classifier(event_text, EVENT_TYPES) 
+    best_label = result["labels"][0] 
+    return best_label 
+    if result["scores"][0] >= 0.75
+    else "Unknown"
 
-Command to get today's events
 
-@app.on_message(filters.command("today")) async def send_today_events(client, message): events = get_stored_events() if not events: await message.reply("No data available. Try again later.") return
 
-keyboard = InlineKeyboardMarkup(
-    [[InlineKeyboardButton(category, callback_data=category.replace(" ", "_"))] for category in events.keys()]
-)
-await message.reply("📅 Select a category:", reply_markup=keyboard)
+def fetch_events_from_wikipedia(date): 
+    url = f"https://en.wikipedia.org/wiki/{date}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser") 
+        events = [] for li in soup.select("#mw-content-text ul > li"): 
+            events.append(li.text) 
+            return events 
+            return [] 
+            
+def store_events(date, events): 
+    formatted_events = [] for event in events: 
+        category = classify_event(event) 
+        formatted_events.append({"event": event, "category": category})
+        events_collection.update_one({"date": date}, {"$set": {"events": formatted_events}}, upsert=True) 
 
-Callback to show event details
+def get_stored_events(date): 
+    data = events_collection.find_one({"date": date}) 
+        if data:
+            return data["events"] 
+        else:
+            None
+ 
 
-@app.on_callback_query() async def cb_handler(client: Client, query: CallbackQuery): try: events = get_stored_events() category = query.data.replace("_", " ") text = "\n".join(events.get(category, [])) await query.message.edit(f"📜 {category} Today:\n{text}") except Exception as e: await client.send_message(query.from_user.id, f"An error occurred: {str(e)}")
+async def post_daily_events(): 
+    today = datetime.datetime.now().strftime("%B_%d")
+    events = get_stored_events(today)
+    if events: message = f"📅 **Events on {today.replace('_', ' ')}**\n\n" for event in events:
+        message += f"📝 {event['event']}\n🔹 Category: {event['category']}\n\n"
+        await Client.send_message(CHANNEL_ID, message) 
 
-Auto-update function
 
-async def auto_update(): while True: get_on_this_day_events() await asyncio.sleep(86400)  # Update every 24 hours
+@Client.on_message(filters.command("events")) 
+async def send_events(client, message): 
+    today = datetime.datetime.now().strftime("%B_%d")
+    events = get_stored_events(today)
+    if events: 
+        buttons = [[InlineKeyboardButton(category, callback_data=category.lower().replace(" ", "_"))] for category in EVENT_TYPES] 
+        await message.reply_text("Choose an event category:", reply_markup=InlineKeyboardMarkup(buttons)) 
+    else: 
+        await message.reply_text("No events found for today.") 
 
+@Client.on_callback_query() 
+async def callback_handler(client: Client, query: CallbackQuery): 
+    today = datetime.datetime.now().strftime("%B_%d") events = get_stored_events(today)
+    if not events: 
+        await query.message.edit_text("No events found.") 
+        return category = query.data.replace("_", " ").title()
+        filtered_events = [e for e in events if e["category"] == category] 
+        if filtered_events: 
+            response = f"📅 **{category} on {today.replace('_', ' ')}**\n\n" for event in filtered_events: 
+                response += f"📝 {event['event']}\n\n" 
+        else: 
+            response = "No events found for this category." 
+            await query.message.edit_text(response)  
+
+@Client.on_message(filters.command("daily_task()")) 
+async def daily_task(client, message):  
+    today = datetime.datetime.now().strftime("%B_%d") 
+    events = fetch_events_from_wikipedia(today), store_events(today, events)
+
+Client.run(daily_task()) 
+Client.run(post_daily_events()) 
