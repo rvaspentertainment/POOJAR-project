@@ -52,10 +52,11 @@ def formate_file_name(file_name):
 # Ask Doubt on telegram @KingVJ0
 
 
-@Client.on_message(filters.command("start") & filters.incoming)
-async def start(client, message):
-    await message.reply(hi)
 
+
+@Client.on_message(filters.command("start"))
+async def start(client, message: Message):
+    await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
 
 
 
@@ -67,45 +68,20 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 import os
-import re
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from gtts import gTTS
 from langdetect import detect
 from pydub import AudioSegment
-from pydub import AudioSegment
-from pydub.utils import which
+import imageio_ffmpeg as ffmpeg_bin
 
-# Set ffmpeg paths manually
-AudioSegment.converter = which("ffmpeg")
-AudioSegment.ffprobe = which("ffprobe")
+# Set up FFmpeg and FFprobe paths for pydub
+AudioSegment.converter = ffmpeg_bin.get_ffmpeg_exe()
+AudioSegment.ffprobe = ffmpeg_bin.get_ffprobe_exe()
 
-# Text Message Handler
-@Client.on_message(filters.text)
-async def handle_text(client, message: Message):
-    text = message.text
-    try:
-        segments = split_by_language(text)
-        combined_audio = AudioSegment.empty()
 
-        for i, (segment_text, lang_code) in enumerate(segments):
-            tts = gTTS(segment_text, lang=lang_code)
-            file_path = f"temp_{message.chat.id}_{i}.mp3"
-            tts.save(file_path)
-            audio = AudioSegment.from_mp3(file_path)
-            combined_audio += audio
-            os.remove(file_path)
 
-        final_path = f"tts_{message.chat.id}.mp3"
-        combined_audio.export(final_path, format="mp3")
-
-        langs_used = ', '.join(set(lang for _, lang in segments))
-        await message.reply_voice(voice=final_path, caption=f"Detected languages: {langs_used}\nHere is your audio!")
-        os.remove(final_path)
-
-    except Exception as e:
-        await message.reply_text(f"Error: {str(e)}")
-
+# Helper function to split text by language
 def split_by_language(text):
     words = text.split()
     segments = []
@@ -116,8 +92,7 @@ def split_by_language(text):
         try:
             lang = detect(word)
         except:
-            lang = 'en'
-
+            lang = 'en'  # fallback language
         if lang != current_lang:
             if current_segment:
                 segments.append((' '.join(current_segment), current_lang))
@@ -130,3 +105,41 @@ def split_by_language(text):
         segments.append((' '.join(current_segment), current_lang))
 
     return segments
+
+# Start Command
+
+# Text Message Handler
+@Client.on_message(filters.text & ~filters.command)
+async def handle_text(client, message: Message):
+    text = message.text
+    try:
+        segments = split_by_language(text)
+        combined_audio = AudioSegment.empty()
+
+        for i, (segment_text, lang_code) in enumerate(segments):
+            try:
+                tts = gTTS(segment_text, lang=lang_code)
+                file_path = f"temp_{message.chat.id}_{i}.mp3"
+                tts.save(file_path)
+                audio = AudioSegment.from_mp3(file_path)
+                combined_audio += audio
+                os.remove(file_path)
+            except Exception as tts_error:
+                print(f"Error generating audio for segment '{segment_text}': {tts_error}")
+                continue
+
+        if combined_audio.duration_seconds == 0:
+            await message.reply_text("Couldn't generate audio from the provided text.")
+            return
+
+        final_path = f"tts_{message.chat.id}.mp3"
+        combined_audio.export(final_path, format="mp3")
+
+        langs_used = ', '.join(set(lang for _, lang in segments))
+        await message.reply_voice(voice=final_path, caption=f"Detected languages: {langs_used}\nHere is your audio!")
+
+        os.remove(final_path)
+
+    except Exception as e:
+        await message.reply_text(f"Error: {str(e)}")
+
