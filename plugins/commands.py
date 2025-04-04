@@ -95,7 +95,7 @@ LANGUAGE_MAP = {
 
 
 # Text Message Handler
-@Client.on_message(filters.text & ~filters.command)
+@Client.on_message(filters.text)
 async def handle_text(client, message: Message):
     text = message.text
     try:
