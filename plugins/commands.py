@@ -69,19 +69,23 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 import os
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from gtts import gTTS
 from langdetect import detect
 from pydub import AudioSegment
-import imageio_ffmpeg as ffmpeg_bin
+import imageio_ffmpeg
+import asyncio
 
-# Set up FFmpeg and FFprobe paths for pydub
-AudioSegment.converter = ffmpeg_bin.get_ffmpeg_exe()
-AudioSegment.ffprobe = ffmpeg_bin.get_ffprobe_exe()
+# Set ffmpeg and ffprobe paths using imageio
+AudioSegment.converter = str(imageio_ffmpeg.get_ffmpeg_exe())
+AudioSegment.ffprobe = str(imageio_ffmpeg.get_ffprobe_exe())
 
+# Bot Configuration
 
+# Keep track of active jobs
+active_jobs = {}
 
-# Helper function to split text by language
+# Language Splitter
 def split_by_language(text):
     words = text.split()
     segments = []
@@ -92,7 +96,7 @@ def split_by_language(text):
         try:
             lang = detect(word)
         except:
-            lang = 'en'  # fallback language
+            lang = 'en'
         if lang != current_lang:
             if current_segment:
                 segments.append((' '.join(current_segment), current_lang))
@@ -103,43 +107,74 @@ def split_by_language(text):
 
     if current_segment:
         segments.append((' '.join(current_segment), current_lang))
-
     return segments
 
-# Start Command
+# /start Command
 
-# Text Message Handler
-@Client.on_message(filters.text & ~filters.command)
+# Cancel Handler
+@Client.on_callback_query(filters.regex("cancel"))
+async def cancel_handler(client, query: CallbackQuery):
+    chat_id = query.message.chat.id
+    active_jobs[chat_id] = "cancelled"
+    await query.message.edit_text("❌ Task cancelled.")
+
+# TTS Handler
+@Client.on_message(filters.text)
 async def handle_text(client, message: Message):
     text = message.text
+    chat_id = message.chat.id
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Cancel", callback_data="cancel")]
+    ])
+
+    progress = await message.reply_text("Detecting language(s)...", reply_markup=keyboard)
+    active_jobs[chat_id] = "running"
+
     try:
         segments = split_by_language(text)
+        if not segments:
+            await progress.edit_text("No valid text detected.")
+            return
+
+        await progress.edit_text("Generating audio...", reply_markup=keyboard)
         combined_audio = AudioSegment.empty()
+        langs_used = set()
 
         for i, (segment_text, lang_code) in enumerate(segments):
+            if active_jobs.get(chat_id) == "cancelled":
+                return  # Stop processing if user canceled
+
             try:
                 tts = gTTS(segment_text, lang=lang_code)
-                file_path = f"temp_{message.chat.id}_{i}.mp3"
-                tts.save(file_path)
-                audio = AudioSegment.from_mp3(file_path)
+                temp_path = f"temp_{chat_id}_{i}.mp3"
+                tts.save(temp_path)
+
+                audio = AudioSegment.from_mp3(temp_path)
                 combined_audio += audio
-                os.remove(file_path)
-            except Exception as tts_error:
-                print(f"Error generating audio for segment '{segment_text}': {tts_error}")
+                langs_used.add(lang_code)
+
+                os.remove(temp_path)
+            except Exception as e:
+                print(f"Error with segment '{segment_text}': {e}")
                 continue
 
         if combined_audio.duration_seconds == 0:
-            await message.reply_text("Couldn't generate audio from the provided text.")
+            await progress.edit_text("Could not generate audio.")
             return
 
-        final_path = f"tts_{message.chat.id}.mp3"
+        final_path = f"tts_{chat_id}.mp3"
         combined_audio.export(final_path, format="mp3")
 
-        langs_used = ', '.join(set(lang for _, lang in segments))
-        await message.reply_voice(voice=final_path, caption=f"Detected languages: {langs_used}\nHere is your audio!")
+        caption = f"Detected languages: {', '.join(langs_used)}"
+        await progress.edit_text("Uploading audio...", reply_markup=None)
+        await message.reply_voice(voice=final_path, caption=caption)
 
         os.remove(final_path)
+        await progress.delete()
+        active_jobs.pop(chat_id, None)
 
     except Exception as e:
-        await message.reply_text(f"Error: {str(e)}")
+        await progress.edit_text(f"Error: {str(e)}", reply_markup=None)
+        active_jobs.pop(chat_id, None)
 
