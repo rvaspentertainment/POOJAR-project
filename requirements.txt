@@ -26,4 +26,5 @@ ffmpeg-python
 ffprobe
 imageio-ffmpeg
 gTTS
-
+ffmpeg
+whisper
