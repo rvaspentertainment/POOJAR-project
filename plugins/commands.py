@@ -67,45 +67,64 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
 
 import os
+import re
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from gtts import gTTS
 from langdetect import detect
+from pydub import AudioSegment
 
-
-
-# Mapping detected languages to gTTS supported languages
-LANGUAGE_MAP = {
-    "kn": "kn",  # Kannada
-    "en": "en",  # English
-    "hi": "hi",  # Hindi
-    "ta": "ta",  # Tamil
-    "te": "te",  # Telugu
-    "mr": "mr",  # Marathi
-    "bn": "bn",  # Bengali
-    "gu": "gu",  # Gujarati
-    "pa": "pa",  # Punjabi
-    "ml": "ml",  # Malayalam
-    "or": "or",  # Odia
-    "ur": "ur",  # Urdu
-    "as": "as",  # Assamese
-    "sa": "sa"   # Sanskrit
-}
-
-
+@bot.on_message(filters.command("start"))
+async def start(client, message: Message):
+    await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
 
 # Text Message Handler
-@Client.on_message(filters.text)
+@Client.on_message(filters.text & ~filters.command)
 async def handle_text(client, message: Message):
     text = message.text
     try:
-        detected_lang = detect(text)
-        lang_code = LANGUAGE_MAP.get(detected_lang, "en")  # Default to English if unsupported
-        
-        tts = gTTS(text, lang=lang_code)
-        file_path = f"tts_{message.chat.id}.mp3"
-        tts.save(file_path)
-        await message.reply_voice(voice=file_path, caption=f"Detected language: {detected_lang} ({lang_code})\nHere is your audio!")
-        os.remove(file_path)
+        segments = split_by_language(text)
+        combined_audio = AudioSegment.empty()
+
+        for i, (segment_text, lang_code) in enumerate(segments):
+            tts = gTTS(segment_text, lang=lang_code)
+            file_path = f"temp_{message.chat.id}_{i}.mp3"
+            tts.save(file_path)
+            audio = AudioSegment.from_mp3(file_path)
+            combined_audio += audio
+            os.remove(file_path)
+
+        final_path = f"tts_{message.chat.id}.mp3"
+        combined_audio.export(final_path, format="mp3")
+
+        langs_used = ', '.join(set(lang for _, lang in segments))
+        await message.reply_voice(voice=final_path, caption=f"Detected languages: {langs_used}\nHere is your audio!")
+        os.remove(final_path)
+
     except Exception as e:
         await message.reply_text(f"Error: {str(e)}")
+
+def split_by_language(text):
+    words = text.split()
+    segments = []
+    current_lang = None
+    current_segment = []
+
+    for word in words:
+        try:
+            lang = detect(word)
+        except:
+            lang = 'en'
+
+        if lang != current_lang:
+            if current_segment:
+                segments.append((' '.join(current_segment), current_lang))
+            current_segment = [word]
+            current_lang = lang
+        else:
+            current_segment.append(word)
+
+    if current_segment:
+        segments.append((' '.join(current_segment), current_lang))
+
+    return segments
