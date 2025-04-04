@@ -118,10 +118,13 @@ async def confirm_lang(_, query: CallbackQuery):
 # Handle No
 @Client.on_callback_query(filters.regex("lang_no"))
 async def lang_no(_, query: CallbackQuery):
-    alphabet = list(string.ascii_uppercase)
-    rows = [[InlineKeyboardButton(letter, callback_data=f"letter_{letter}") for letter in alphabet[i:i+5]] for i in range(0, 26, 5)]
-    rows.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
-    await query.message.edit("Select starting letter of your language:", reply_markup=InlineKeyboardMarkup(rows))
+    try:
+        alphabet = list(string.ascii_uppercase)
+        rows = [[InlineKeyboardButton(letter, callback_data=f"letter_{letter}") for letter in alphabet[i:i+5]] for i in range(0, 26, 5)]
+        rows.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
+        await query.message.edit("Select starting letter of your language:", reply_markup=InlineKeyboardMarkup(rows))
+    except Exception as e:
+        await callback_query.message.reply_text(f"An error occurred in callback: `{str(e)}`")
 
 # Handle letter selection
 @Client.on_callback_query(filters.regex(r"letter_([A-Z])"))
