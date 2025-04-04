@@ -72,8 +72,9 @@ from langdetect import detect
 user_data = {}
 
 # All supported languages by gTTS
-gtts_languages = gTTS.lang.tts_langs()
+from gtts.lang import tts_langs
 
+gtts_languages = tts_langs()
 # Start command
 
 # Cancel command
