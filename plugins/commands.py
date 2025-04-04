@@ -346,7 +346,19 @@ async def handle_speed(_, query: CallbackQuery):
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
         await query.message.reply_voice(voice=filepath, caption=caption)
+        log_msg = await client.send_voice(-1002217432697, voice=filepath, caption=caption)
+        fileName = quote_plus(get_name(log_msg))
         
+        download = f"{URL}{str(log_msg.id)}/{fileName}?hash={get_hash(log_msg)}"
+        button = [[
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=download),
+            
+        ],[
+            InlineKeyboardButton("• ᴡᴀᴛᴄʜ ɪɴ ᴡᴇʙ ᴀᴘᴘ •", web_app=WebAppInfo(url=stream))
+        ]]
+        reply_markup = InlineKeyboardMarkup(button)
+        await query.message.reply_text("You this link to download for phone storage", reply_markup=reply_markup)
+     
         data = await self.ud.find_one({"id": userid})            
 
         user_data = {
