@@ -26,3 +26,4 @@ ffmpeg
 ffprobe
 imageio-ffmpeg
 gTTS
+subprocess
