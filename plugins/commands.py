@@ -60,11 +60,6 @@ async def start(client, message: Message):
 
 
 
-@Client.on_callback_query()
-async def cb_handler(client: Client, query: CallbackQuery):
-    if query.data == "close_data":
-        await query.message.delete()
-    
 
 
 import os
@@ -73,19 +68,14 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from gtts import gTTS
 from langdetect import detect
 from pydub import AudioSegment
-import imageio_ffmpeg
-import asyncio
 
-# Set ffmpeg and ffprobe paths using imageio
-AudioSegment.converter = str(imageio_ffmpeg.get_ffmpeg_exe())
-AudioSegment.ffprobe = str(imageio_ffmpeg.get_ffprobe_exe())
 
-# Bot Configuration
+# Create directory for audio
+VOICE_DIR = "voices"
+os.makedirs(VOICE_DIR, exist_ok=True)
 
-# Keep track of active jobs
-active_jobs = {}
+user_texts = {}
 
-# Language Splitter
 def split_by_language(text):
     words = text.split()
     segments = []
@@ -104,77 +94,56 @@ def split_by_language(text):
             current_lang = lang
         else:
             current_segment.append(word)
-
     if current_segment:
         segments.append((' '.join(current_segment), current_lang))
     return segments
 
-# /start Command
 
-# Cancel Handler
-@Client.on_callback_query(filters.regex("cancel"))
-async def cancel_handler(client, query: CallbackQuery):
-    chat_id = query.message.chat.id
-    active_jobs[chat_id] = "cancelled"
-    await query.message.edit_text("❌ Task cancelled.")
 
-# TTS Handler
 @Client.on_message(filters.text)
-async def handle_text(client, message: Message):
-    text = message.text
-    chat_id = message.chat.id
-
+async def text_handler(client, message: Message):
+    user_texts[message.chat.id] = message.text
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Cancel", callback_data="cancel")]
+        [InlineKeyboardButton("✅ Generate Audio", callback_data="generate")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
     ])
+    await message.reply_text("Choose an action:", reply_markup=keyboard)
 
-    progress = await message.reply_text("Detecting language(s)...", reply_markup=keyboard)
-    active_jobs[chat_id] = "running"
+@Client.on_callback_query()
+async def button_handler(client, query: CallbackQuery):
+    user_id = query.message.chat.id
+    data = query.data
+
+    if data == "cancel":
+        user_texts.pop(user_id, None)
+        await query.message.edit_text("Cancelled.")
+        return
+
+    text = user_texts.get(user_id)
+    if not text:
+        await query.message.edit_text("No text found. Please send text first.")
+        return
 
     try:
         segments = split_by_language(text)
-        if not segments:
-            await progress.edit_text("No valid text detected.")
-            return
-
-        await progress.edit_text("Generating audio...", reply_markup=keyboard)
         combined_audio = AudioSegment.empty()
-        langs_used = set()
 
         for i, (segment_text, lang_code) in enumerate(segments):
-            if active_jobs.get(chat_id) == "cancelled":
-                return  # Stop processing if user canceled
+            tts = gTTS(segment_text, lang=lang_code)
+            file_path = os.path.join(VOICE_DIR, f"temp_{user_id}_{i}.mp3")
+            tts.save(file_path)
+            audio = AudioSegment.from_mp3(file_path)
+            combined_audio += audio
+            os.remove(file_path)
 
-            try:
-                tts = gTTS(segment_text, lang=lang_code)
-                temp_path = f"temp_{chat_id}_{i}.mp3"
-                tts.save(temp_path)
-
-                audio = AudioSegment.from_mp3(temp_path)
-                combined_audio += audio
-                langs_used.add(lang_code)
-
-                os.remove(temp_path)
-            except Exception as e:
-                print(f"Error with segment '{segment_text}': {e}")
-                continue
-
-        if combined_audio.duration_seconds == 0:
-            await progress.edit_text("Could not generate audio.")
-            return
-
-        final_path = f"tts_{chat_id}.mp3"
+        final_path = os.path.join(VOICE_DIR, f"tts_{user_id}.mp3")
         combined_audio.export(final_path, format="mp3")
 
-        caption = f"Detected languages: {', '.join(langs_used)}"
-        await progress.edit_text("Uploading audio...", reply_markup=None)
-        await message.reply_voice(voice=final_path, caption=caption)
-
+        langs_used = ', '.join(set(lang for _, lang in segments))
+        await query.message.reply_voice(voice=final_path, caption=f"Languages Detected: {langs_used}")
         os.remove(final_path)
-        await progress.delete()
-        active_jobs.pop(chat_id, None)
+        user_texts.pop(user_id, None)
 
     except Exception as e:
-        await progress.edit_text(f"Error: {str(e)}", reply_markup=None)
-        active_jobs.pop(chat_id, None)
+        await query.message.edit_text(f"Error: {str(e)}")
 
