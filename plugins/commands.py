@@ -125,16 +125,17 @@ async def confirm_lang(_, query: CallbackQuery):
 async def lang_no(_, query: CallbackQuery):
     try:
         rows = [
-            [InlineKeyboardButton("🇮🇳 Indian Languages", callback_data="region_indian")],
-            [InlineKeyboardButton("🌍 European Languages", callback_data="region_europe")],
-            [InlineKeyboardButton("🌏 Asian & Others", callback_data="region_other")],
-            [InlineKeyboardButton("🔤 A-Z Language List", callback_data="region_all")],
+            [InlineKeyboardButton("🇮🇳 Indian", callback_data="region_indian")],
+            [InlineKeyboardButton("🇪🇺 European", callback_data="region_europe")],
+            [InlineKeyboardButton("🌏 Asian & Far-East", callback_data="region_asia")],
+            [InlineKeyboardButton("🌍 African", callback_data="region_africa")],
+            [InlineKeyboardButton("🌙 Middle Eastern", callback_data="region_middleeast")],
+            [InlineKeyboardButton("🔤 All Languages A-Z", callback_data="region_all")],
             [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
         ]
         await query.message.edit("Choose a language group:", reply_markup=InlineKeyboardMarkup(rows))
     except Exception as e:
         await query.message.reply_text(f"An error occurred in `lang_no`: `{str(e)}`")
-
 @Client.on_callback_query(filters.regex("region_indian"))
 async def region_indian(_, query: CallbackQuery):
     try:
@@ -149,6 +150,54 @@ async def region_indian(_, query: CallbackQuery):
     except Exception as e:
         await query.message.reply_text(f"An error occurred in `region_indian`: `{str(e)}`")
 
+@Client.on_callback_query(filters.regex("region_africa"))
+async def region_africa(_, query: CallbackQuery):
+    try:
+        african_langs = {
+            'af': 'Afrikaans',
+            'sw': 'Swahili',
+            'yo': 'Yoruba',
+            'ig': 'Igbo',
+            'am': 'Amharic',
+            'ha': 'Hausa',
+            'st': 'Sesotho',
+            'zu': 'Zulu',
+        }
+        buttons = [[InlineKeyboardButton(name, callback_data=f"langpick_{code}")] for code, name in african_langs.items()]
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="lang_no")])
+        await query.message.edit("Choose an African language:", reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception as e:
+        await query.message.reply_text(f"Error in `region_africa`: `{str(e)}`")
+
+@Client.on_callback_query(filters.regex("region_middleeast"))
+async def region_middleeast(_, query: CallbackQuery):
+    try:
+        mid_langs = {
+            'ar': 'Arabic',
+            'fa': 'Persian (Farsi)',
+            'he': 'Hebrew',
+            'ku': 'Kurdish',
+            'tr': 'Turkish',
+        }
+        buttons = [[InlineKeyboardButton(name, callback_data=f"langpick_{code}")] for code, name in mid_langs.items()]
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="lang_no")])
+        await query.message.edit("Choose a Middle Eastern language:", reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception as e:
+        await query.message.reply_text(f"Error in `region_middleeast`: `{str(e)}`")
+
+@Client.on_callback_query(filters.regex("region_asia"))
+async def region_asia(_, query: CallbackQuery):
+    try:
+        asian_langs = {
+            'ja': 'Japanese', 'zh-cn': 'Chinese (Simplified)', 'zh-tw': 'Chinese (Traditional)',
+            'ko': 'Korean', 'id': 'Indonesian', 'th': 'Thai', 'vi': 'Vietnamese', 'ms': 'Malay'
+        }
+        buttons = [[InlineKeyboardButton(name, callback_data=f"langpick_{code}")] for code, name in asian_langs.items()]
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="lang_no")])
+        await query.message.edit("Choose an Asian language:", reply_markup=InlineKeyboardMarkup(buttons))
+    except Exception as e:
+        await query.message.reply_text(f"Error in `region_asia`: `{str(e)}`")
+     
 @Client.on_callback_query(filters.regex("region_europe"))
 async def region_europe(_, query: CallbackQuery):
     try:
@@ -163,18 +212,6 @@ async def region_europe(_, query: CallbackQuery):
     except Exception as e:
         await query.message.reply_text(f"An error occurred in `region_europe`: `{str(e)}`")
 
-@Client.on_callback_query(filters.regex("region_other"))
-async def region_other(_, query: CallbackQuery):
-    try:
-        other_langs = {
-            'ja': 'Japanese', 'zh-cn': 'Chinese (Simplified)', 'ko': 'Korean',
-            'id': 'Indonesian', 'vi': 'Vietnamese', 'th': 'Thai', 'ar': 'Arabic'
-        }
-        buttons = [[InlineKeyboardButton(name, callback_data=f"langpick_{code}")] for code, name in other_langs.items()]
-        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="lang_no")])
-        await query.message.edit("Choose an Asian or other language:", reply_markup=InlineKeyboardMarkup(buttons))
-    except Exception as e:
-        await query.message.reply_text(f"An error occurred in `region_other`: `{str(e)}`")
 
 @Client.on_callback_query(filters.regex("region_all"))
 async def region_all(_, query: CallbackQuery):
@@ -249,8 +286,8 @@ async def handle_speed(_, query: CallbackQuery):
         tts = gTTS(text=text, lang=lang, slow=(speed == "slow"))
         tts.save(filepath)
 
-        progress = "⚫ ⚪ ⚫ ⚪ ⚫ ⚪ ⚫ ⚪ ⚫ ⚪"
-        await query.message.edit(f"{progress}\nSending voice...")
+        
+        await query.message.edit("Sending voice...")
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
         await query.message.reply_voice(voice=filepath, caption=caption)
