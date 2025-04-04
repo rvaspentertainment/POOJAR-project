@@ -56,9 +56,20 @@ def formate_file_name(file_name):
 
 @Client.on_message(filters.command("start"))
 async def start(client, message: Message):
-    await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
+    user_id = message.from_user.id 
+    if not await db.ud.find_one({"id": user_id}):
+        user_data = {
+            "id": user_id,
+            "mp3": 0,
+            "run": 0,
+            "char": 0,
+            "joined": await dati()
+        }    
+        await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
+        await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
 
 
+        
 import os
 import string
 from pyrogram import Client, filters
