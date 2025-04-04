@@ -22,9 +22,4 @@ tgcrypto
 gTTS
 pydub
 langdetect
-ffmpeg-python
-ffprobe
-imageio-ffmpeg
 gTTS
-ffmpeg
-git+https://github.com/openai/whisper.git
