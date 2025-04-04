@@ -342,17 +342,21 @@ async def handle_speed(_, query: CallbackQuery):
 
         tts = gTTS(text=text, lang=lang, slow=(speed == "slow"))
         tts.save(filepath)
-
-        
+     
         await query.message.edit("Sending voice...")
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
         await query.message.reply_voice(voice=filepath, caption=caption)
+        
+        data = await self.ud.find_one({"id": userid})
+        
+     
+
         user_data = {
             "id": 12345,     # unique user ID
-            "mp3": 0,
-            "run": 0,
-            "char": 0
+            "mp3": data.get("mp3", 0) + 1,
+            "run": f"data.get("run", 0) + 1",
+            "char": f"data.get("char", 0) + {len(text)}"
         }
         await self.ud.update_one(
             {"id": user_data["id"]},
