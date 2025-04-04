@@ -33,5 +33,9 @@ class Database:
     async def delete_user(self, user_id):
         await self.col.delete_many({'id': int(user_id)})
 
+    async def update_ud(self, user_id):
+    await self.ud.update_one({"id": user_data["id"]}, {"$set": {"file": user_data["file"]}}, upsert=True)
+
+
 
 db = Database(DB_URI, DB_NAME)
