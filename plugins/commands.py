@@ -27,7 +27,7 @@ BATCH_FILES = {}
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
-
+ 
 
 def get_size(size):
     """Get size in readable format"""
@@ -59,124 +59,141 @@ async def start(client, message: Message):
     await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
 
 
+import os
+import string
 from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from gtts import gTTS
 from langdetect import detect
-import os
-import random
-import string
-import subprocess
+from gtts.lang import tts_langs
 
-# MANUAL LANGUAGES
-_langs = {
-    "af": "Afrikaans", "am": "Amharic", "ar": "Arabic", "bg": "Bulgarian", "bn": "Bengali",
-    "bs": "Bosnian", "ca": "Catalan", "cs": "Czech", "cy": "Welsh", "da": "Danish",
-    "de": "German", "el": "Greek", "en": "English", "es": "Spanish", "et": "Estonian",
-    "eu": "Basque", "fi": "Finnish", "fr": "French", "fr-CA": "French (Canada)", "gl": "Galician",
-    "gu": "Gujarati", "ha": "Hausa", "hi": "Hindi", "hr": "Croatian", "hu": "Hungarian",
-    "id": "Indonesian", "is": "Icelandic", "it": "Italian", "iw": "Hebrew", "ja": "Japanese",
-    "jw": "Javanese", "km": "Khmer", "kn": "Kannada", "ko": "Korean", "la": "Latin",
-    "lt": "Lithuanian", "lv": "Latvian", "ml": "Malayalam", "mr": "Marathi", "ms": "Malay",
-    "my": "Myanmar (Burmese)", "ne": "Nepali", "nl": "Dutch", "no": "Norwegian", "pa": "Punjabi (Gurmukhi)",
-    "pl": "Polish", "pt": "Portuguese (Brazil)", "pt-PT": "Portuguese (Portugal)", "ro": "Romanian",
-    "ru": "Russian", "si": "Sinhala", "sk": "Slovak", "sq": "Albanian", "sr": "Serbian",
-    "su": "Sundanese", "sv": "Swedish", "sw": "Swahili", "ta": "Tamil", "te": "Telugu",
-    "th": "Thai", "tl": "Filipino", "tr": "Turkish", "uk": "Ukrainian", "ur": "Urdu",
-    "vi": "Vietnamese", "yue": "Cantonese", "zh-CN": "Chinese (Simplified)", "zh-TW": "Chinese (Traditional)"
-}
+# Store user session data
+user_data = {}
 
+# All supported languages
+gtts_languages = tts_langs()
 
-def progress_bar(pct):
-    filled = int(pct / 10)
-    symbol = random.choice([("⚫", "⚪"), ("❤", "💛")])
-    return f"{symbol[0]*filled}{symbol[1]*(10-filled)} {pct}%"
-
-# /start and /help
-
-@Client.on_message(filters.command("help"))
-async def help(_, m: Message):
-    await m.reply(
-        "**Text-to-Speech Help**\n\n"
-        "1. Send me any text.\n"
-        "2. I detect the language.\n"
-        "3. You confirm or pick a new one.\n"
-        "4. Choose voice speed.\n"
-        "5. I send back the audio!\n\n"
-        "Supported Languages:\n" + ", ".join([f"`{k}`" for k in _langs.keys()])
-    )
-
-@Client.on_message(filters.text)
-async def tts_detect_language(_, m: Message):
+# Cancel Button
+@Client.on_callback_query(filters.regex("cancel"))
+async def cancel_button(_, query: CallbackQuery):
     try:
-        text = m.text
+        user_data.pop(query.from_user.id, None)
+        await query.message.edit("❌ Cancelled. Send me new text to start again.")
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `cancel`: `{str(e)}`")
+
+# Handle Incoming Text
+@Client.on_message(filters.text)
+async def handle_text(_, message: Message):
+    try:
+        text = message.text
+        user_id = message.from_user.id
         lang = detect(text)
-        lang_name = _langs.get(lang, lang)
-        await m.reply(
-            f"Detected language: **{lang_name}** (`{lang}`)\nIs this correct?",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Yes", callback_data=f"yes|{lang}|{text}")],
-                [InlineKeyboardButton("❌ No", callback_data=f"no|{text}")]
-            ])
+        user_data[user_id] = {"text": text, "lang": lang}
+
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Yes", callback_data="lang_yes"),
+             InlineKeyboardButton("✏️ No", callback_data="lang_no")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
+        ])
+        await message.reply(
+            f"Detected Language: {gtts_languages.get(lang, 'Unknown')} ({lang})\nDo you want to proceed?",
+            reply_markup=buttons
         )
     except Exception as e:
-        await m.reply(f"Error: {e}")
+        await message.reply_text(f"An error occurred: `{str(e)}`")
 
-@Client.on_callback_query(filters.regex("^no\\|"))
-async def choose_language(_, c: CallbackQuery):
-    _, text = c.data.split("|", 1)
-    buttons = [[InlineKeyboardButton(name, callback_data=f"lang|{code}|{text}")]
-               for code, name in list(_langs.items())[:100]]
-    await c.message.reply("Choose your language:", reply_markup=InlineKeyboardMarkup(buttons))
-
-@Client.on_callback_query(filters.regex("^lang\\|"))
-async def after_language(_, c: CallbackQuery):
-    _, lang, text = c.data.split("|", 2)
-    await c.message.reply("Select voice speed:", reply_markup=InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🐢 Slow", callback_data=f"speed|{lang}|slow|{text}"),
-            InlineKeyboardButton("🚶 Medium", callback_data=f"speed|{lang}|medium|{text}"),
-            InlineKeyboardButton("⚡ Fast", callback_data=f"speed|{lang}|fast|{text}")
-        ]
-    ]))
-
-@Client.on_callback_query(filters.regex("^yes\\|"))
-async def confirm_detected_lang(_, c: CallbackQuery):
-    _, lang, text = c.data.split("|", 2)
-    await c.message.reply("Select voice speed:", reply_markup=InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🐢 Slow", callback_data=f"speed|{lang}|slow|{text}"),
-            InlineKeyboardButton("🚶 Medium", callback_data=f"speed|{lang}|medium|{text}"),
-            InlineKeyboardButton("⚡ Fast", callback_data=f"speed|{lang}|fast|{text}")
-        ]
-    ]))
-
-@Client.on_callback_query(filters.regex("^speed\\|"))
-async def generate_audio(_, c: CallbackQuery):
+# User accepted detected language
+@Client.on_callback_query(filters.regex("lang_yes"))
+async def confirm_lang(_, query: CallbackQuery):
     try:
-        _, lang, speed, text = c.data.split("|", 3)
-        tld_speed = {"slow": True, "medium": False, "fast": False}
-        pct = 30
-        prog = await c.message.reply(f"{progress_bar(pct)} Generating voice...")
-        tts = gTTS(text=text, lang=lang, slow=tld_speed[speed])
-        filename = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-        filepath = f"audios/{filename}.mp3"
+        user_id = query.from_user.id
+        if user_id not in user_data:
+            return await query.answer("Session expired. Send new text.", show_alert=True)
+
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🐢 Slow", callback_data="speed_slow"),
+             InlineKeyboardButton("⚡ Medium", callback_data="speed_medium"),
+             InlineKeyboardButton("🚀 Fast", callback_data="speed_fast")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
+        ])
+        await query.message.edit("Select your voice speed:", reply_markup=buttons)
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `lang_yes`: `{str(e)}`")
+
+# User rejected detected language
+@Client.on_callback_query(filters.regex("lang_no"))
+async def lang_no(_, query: CallbackQuery):
+    try:
+        alphabet = list(string.ascii_uppercase)
+        rows = [[InlineKeyboardButton(letter, callback_data=f"letter_{letter}") for letter in alphabet[i:i + 5]] for i in range(0, 26, 5)]
+        rows.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
+        await query.message.edit("Select the first letter of your language:", reply_markup=InlineKeyboardMarkup(rows))
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `lang_no`: `{str(e)}`")
+
+# Show languages starting with selected letter
+@Client.on_callback_query(filters.regex(r"letter_([A-Z])"))
+async def handle_letter(_, query: CallbackQuery):
+    try:
+        letter = query.data.split("_")[1].lower()
+        matches = [(code, name) for code, name in gtts_languages.items() if name.lower().startswith(letter)]
+
+        if not matches:
+            return await query.message.edit("No languages found. Try another letter.")
+
+        rows = [
+            [InlineKeyboardButton(name, callback_data=f"langpick_{code}")]
+            for code, name in matches
+        ]
+        rows.append([InlineKeyboardButton("❌ Cancel", callback_data="cancel")])
+        await query.message.edit("Choose your language:", reply_markup=InlineKeyboardMarkup(rows))
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `handle_letter`: `{str(e)}`")
+
+# Save language selected manually
+@Client.on_callback_query(filters.regex(r"langpick_(.+)"))
+async def handle_lang_pick(_, query: CallbackQuery):
+    try:
+        lang_code = query.data.split("_")[1]
+        user_data[query.from_user.id]["lang"] = lang_code
+
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🐢 Slow", callback_data="speed_slow"),
+             InlineKeyboardButton("⚡ Medium", callback_data="speed_medium"),
+             InlineKeyboardButton("🚀 Fast", callback_data="speed_fast")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
+        ])
+        await query.message.edit("Select your voice speed:", reply_markup=buttons)
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `langpick`: `{str(e)}`")
+
+# Generate voice
+@Client.on_callback_query(filters.regex(r"speed_(slow|medium|fast)"))
+async def handle_speed(_, query: CallbackQuery):
+    try:
+        speed = query.data.split("_")[1]
+        user_id = query.from_user.id
+
+        if user_id not in user_data:
+            return await query.message.edit("Session expired. Send new text.")
+
+        text = user_data[user_id]["text"]
+        lang = user_data[user_id]["lang"]
+        os.makedirs("audios", exist_ok=True)
+        filepath = f"audios/audio_{user_id}.mp3"
+
+        tts = gTTS(text=text, lang=lang, slow=(speed == "slow"))
         tts.save(filepath)
 
-        output = f"audios/{filename}.ogg"
-        await prog.edit(f"{progress_bar(70)} Converting to OGG format...")
-        subprocess.run(["ffmpeg", "-i", filepath, "-c:a", "libopus", output, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        progress = "⚫ ⚪ ⚫ ⚪ ⚫ ⚪ ⚫ ⚪ ⚫ ⚪"
+        await query.message.edit(f"{progress}\nSending voice...")
 
-        await bot.send_voice(
-            c.message.chat.id,
-            voice=output,
-            caption=f"**Language**: `{lang}`\n**Chars**: {len(text)}\n**Speed**: {speed.title()}"
-        )
-
-        await prog.edit(progress_bar(100) + " Done!")
+        caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
+        await query.message.reply_voice(voice=filepath, caption=caption)
 
         os.remove(filepath)
-        os.remove(output)
-    except Exception as e:
-        await c.message.reply(f"An error occurred: {e}")
+        user_data.pop(user_id, None)
 
+    except Exception as e:
+        await query.message.reply_text(f"An error occurred in `speed`: `{str(e)}`")
