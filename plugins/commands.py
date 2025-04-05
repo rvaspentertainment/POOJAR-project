@@ -79,7 +79,7 @@ async def user_details(client, message):
                 f"Joined on: {user_data['joined']}\n"          
                 f"ID: {user_data['id']}\n"
                 f"Total Text to Speech converted: {user_data['mp3']}\n"          
-                f"Total mp3 rub time: {user_data['run']}\n"
+
                 f"Total text characters used: {user_data['char']}\n"
                                   
             )
@@ -359,7 +359,7 @@ async def handle_speed(_, query: CallbackQuery):
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
         await query.message.reply_voice(voice=filepath, caption=caption)
-        log_msg = await client.send_voice(-1002217432697, voice=filepath, caption=caption)
+        log_msg = await bot.send_voice(-1002217432697, voice=filepath, caption=caption)
         fileName = quote_plus(get_name(log_msg))
         
         download = f"{URL}{str(log_msg.id)}/{fileName}?hash={get_hash(log_msg)}"
