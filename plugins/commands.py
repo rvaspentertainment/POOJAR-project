@@ -71,7 +71,7 @@ async def user_details(client, message):
             # Command without user_id argument: /user_details
             user_id = message.from_user.id
             
-        user_data = await db.ud.find_one({"id": userid})            
+        user_data = await db.ud.find_one({"id": user_id})            
 
         if user_data:
             details_message = (
@@ -96,16 +96,19 @@ async def user_details(client, message):
 
 @Client.on_message(filters.command("start"))
 async def start(client, message: Message):
-    user_id = message.from_user.id 
-    if not await db.ud.find_one({"id": user_id}):
-        user_data = {
-            "id": user_id,
-            "mp3": 0,
-            "char": 0,
-            "joined": await dati()
-        }    
-        await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
-        await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
+    try:
+        user_id = message.from_user.id 
+        if not await db.ud.find_one({"id": user_id}):
+            user_data = {
+                "id": user_id,
+                "mp3": 0,
+                "char": 0,
+                "joined": await dati()
+            }    
+            await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
+            await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
+    except Exception as e:
+        await message.reply_text(f"An error occurred in `cancel`: `{str(e)}`")
 
 
         
@@ -371,16 +374,16 @@ async def handle_speed(_, query: CallbackQuery):
      
         data = await db.ud.find_one({"id": userid})            
 
-        user_data = {
+        user_data1 = {
             "id": 12345,     # unique user ID
             "mp3": data.get("mp3", 0) + 1,
             "char": data.get("char", 0) + len(text)
         }
         await db.ud.update_one(
-            {"id": user_data["id"]},
+            {"id": user_data1["id"]},
             {"$set": {
-                "mp3": user_data["mp3"],
-                "char": user_data["char"]
+                "mp3": user_data1["mp3"],
+                "char": user_data1["char"]
             }},
             upsert=True
         )
