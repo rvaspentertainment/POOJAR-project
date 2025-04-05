@@ -363,7 +363,7 @@ async def handle_speed(_, query: CallbackQuery):
             f"🎵 Speed: {speed.title()}"
         )
         await query.message.reply_voice(voice=filepath, caption=caption)
-        envs_url = await upload_to_transfersh(filepath)
+        envs_url = await upload_to_fileio(filepath)
         if not envs_url:
             return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
 
@@ -404,23 +404,21 @@ async def handle_speed(_, query: CallbackQuery):
 import aiohttp
 import os
 
-async def upload_to_transfersh(file_path):
+async def upload_to_fileio(file_path):
     try:
         async with aiohttp.ClientSession() as session:
             with open(file_path, 'rb') as f:
-                filename = os.path.basename(file_path)
-                upload_url = f"https://transfer.sh/{filename}"
-                headers = {
-                    'Max-Downloads': '1',      # Optional: limit number of downloads
-                    'Max-Days': '1'            # Optional: limit duration (in days)
-                }
-                async with session.put(upload_url, data=f, headers=headers) as response:
+                data = {'file': f}
+                async with session.post('https://file.io/', data=data) as response:
                     if response.status == 200:
-                        download_link = await response.text()
-                        print(download_link)
-                        return download_link.strip()
+                        result = await response.json()
+                        if result.get("success"):
+                            return result.get("link")
+                        else:
+                            print("Upload failed:", result)
+                            return None
                     else:
-                        print("Upload failed with status:", response.status)
+                        print("HTTP error:", response.status)
                         return None
     except Exception as e:
         print("Upload error:", str(e))
