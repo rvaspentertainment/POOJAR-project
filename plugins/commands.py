@@ -23,11 +23,21 @@ from TechVJ.utils.file_properties import get_name, get_hash, get_media_file_size
 logger = logging.getLogger(__name__)
 from gtts.lang import tts_langs
 BATCH_FILES = {}
-
+from datetime import datetime, timedelta
+import pytz
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
- 
+async def dati():
+    try:
+        kolkata_timezone = pytz.timezone('Asia/Kolkata')
+        kolkata_time = datetime.now(kolkata_timezone)
+        formatted_time = kolkata_time.strftime('%d/%m/%Y %H:%M:%S')  
+        return formatted_time 
+    except Exception as e:
+        # Handle exceptions appropriately, e.g., logging or raising
+        raise RuntimeError(f"Error in dati function: {str(e)}")
+
 
 def get_size(size):
     """Get size in readable format"""
@@ -359,14 +369,14 @@ async def handle_speed(_, query: CallbackQuery):
         reply_markup = InlineKeyboardMarkup(button)
         await query.message.reply_text("You this link to download for phone storage", reply_markup=reply_markup)
      
-        data = await self.ud.find_one({"id": userid})            
+        data = await db.ud.find_one({"id": userid})            
 
         user_data = {
             "id": 12345,     # unique user ID
             "mp3": data.get("mp3", 0) + 1,
             "char": data.get("char", 0) + len(text)
         }
-        await self.ud.update_one(
+        await db.ud.update_one(
             {"id": user_data["id"]},
             {"$set": {
                 "mp3": user_data["mp3"],
