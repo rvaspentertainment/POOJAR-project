@@ -369,7 +369,7 @@ async def handle_speed(_, query: CallbackQuery):
 
         # Inline download button
         button = [[
-            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=envs_url)
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=f"http//:{envs_url}")
         ]]
         reply_markup = InlineKeyboardMarkup(button)
 
@@ -409,8 +409,9 @@ async def upload_to_envs(file_path):
                 data.add_field('file', f, filename=os.path.basename(file_path), content_type='application/octet-stream')
                 async with session.post("https://envs.sh", data=data) as response:
                     if response.status == 200:
-                        return await response.text()
                         print(await response. text())
+                        return await response.text()
+                        
                     else:
                         return None
     except Exception as e:
