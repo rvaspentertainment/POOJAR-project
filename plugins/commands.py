@@ -113,7 +113,7 @@ async def start(client, message: Message):
         ]]
         reply_markup = InlineKeyboardMarkup(button)
 
-        await query.message.reply_text(
+        await message.reply_text(
             "Send me any text, and I'll convert it to speech using detected language(s)!/n/nPowered by PP Bots and GTtS",
             reply_markup=reply_markup
         )
