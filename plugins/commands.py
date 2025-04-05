@@ -363,7 +363,7 @@ async def handle_speed(_, query: CallbackQuery):
             f"🎵 Speed: {speed.title()}"
         )
         await query.message.reply_voice(voice=filepath, caption=caption)
-        envs_url = await upload_to_gofile(filepath)
+        envs_url = await upload_to_uguu(filepath)
         if not envs_url:
             return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
 
@@ -404,26 +404,15 @@ async def handle_speed(_, query: CallbackQuery):
 import aiohttp
 import os
 
-async def upload_to_gofile(file_path):
+async def upload_to_uguu(file_path):
     try:
         async with aiohttp.ClientSession() as session:
-            # Step 1: Get server
-            async with session.get("https://api.gofile.io/getServer") as server_resp:
-                server_data = await server_resp.json()
-                server = server_data["data"]["server"]
-
-            # Step 2: Upload the file
-            upload_url = f"https://{server}.gofile.io/uploadFile"
             with open(file_path, 'rb') as f:
                 data = aiohttp.FormData()
-                data.add_field('file', f, filename=os.path.basename(file_path))
-                async with session.post(upload_url, data=data) as response:
+                data.add_field('files[]', f, filename=os.path.basename(file_path))
+                async with session.post("https://uguu.se/upload.php", data=data) as response:
                     result = await response.json()
-                    if result["status"] == "ok":
-                        return result["data"]["downloadPage"]
-                    else:
-                        print("Upload failed:", result)
-                        return None
+                    return result[0]['url'] if response.status == 200 else None
     except Exception as e:
         print("Upload error:", str(e))
         return None
