@@ -417,15 +417,22 @@ async def upload_to_uguu(file_path):
                 )
 
                 async with session.post("https://uguu.se/upload.php", data=form) as response:
+                    text = await response.text()
+                    print("Raw response:", text)
+
                     if response.status == 200:
-                        data = await response.json()
-                        if isinstance(data, list) and data and 'url' in data[0]:
-                            return data[0]['url']
-                        else:
-                            print("Unexpected response format:", data)
+                        try:
+                            data = await response.json()
+                            if isinstance(data, list) and len(data) > 0:
+                                return data[0].get("url")
+                            else:
+                                print("Unexpected data format:", data)
+                        except Exception as json_error:
+                            print("JSON decode error:", str(json_error))
+                            return None
                     else:
-                        print("HTTP Error:", response.status)
+                        print(f"Upload failed. HTTP Status: {response.status}")
+                        return None
     except Exception as e:
         print("Upload error:", str(e))
-    
-    return None
+        return None
