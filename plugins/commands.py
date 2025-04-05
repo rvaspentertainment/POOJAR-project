@@ -363,7 +363,7 @@ async def handle_speed(_, query: CallbackQuery):
             f"🎵 Speed: {speed.title()}"
         )
         await query.message.reply_voice(voice=filepath, caption=caption)
-        envs_url = await upload_to_fileio(filepath)
+        envs_url = await upload_to_gofile(filepath)
         if not envs_url:
             return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
 
@@ -404,21 +404,25 @@ async def handle_speed(_, query: CallbackQuery):
 import aiohttp
 import os
 
-async def upload_to_fileio(file_path):
+async def upload_to_gofile(file_path):
     try:
         async with aiohttp.ClientSession() as session:
+            # Step 1: Get server
+            async with session.get("https://api.gofile.io/getServer") as server_resp:
+                server_data = await server_resp.json()
+                server = server_data["data"]["server"]
+
+            # Step 2: Upload the file
+            upload_url = f"https://{server}.gofile.io/uploadFile"
             with open(file_path, 'rb') as f:
-                data = {'file': f}
-                async with session.post('https://file.io/', data=data) as response:
-                    if response.status == 200:
-                        result = await response.json()
-                        if result.get("success"):
-                            return result.get("link")
-                        else:
-                            print("Upload failed:", result)
-                            return None
+                data = aiohttp.FormData()
+                data.add_field('file', f, filename=os.path.basename(file_path))
+                async with session.post(upload_url, data=data) as response:
+                    result = await response.json()
+                    if result["status"] == "ok":
+                        return result["data"]["downloadPage"]
                     else:
-                        print("HTTP error:", response.status)
+                        print("Upload failed:", result)
                         return None
     except Exception as e:
         print("Upload error:", str(e))
