@@ -106,7 +106,16 @@ async def start(client, message: Message):
                 "joined": await dati()
             }    
             await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
-            await message.reply_text("Send me any text, and I'll convert it to speech using detected language(s)!")
+            
+        button = [[
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=envs_url)
+        ]]
+        reply_markup = InlineKeyboardMarkup(button)
+
+        await query.message.reply_text(
+            "Send me any text, and I'll convert it to speech using detected language(s)!/n/nPowered by PP Bots and GTtS",
+            reply_markup=reply_markup
+        )
     except Exception as e:
         await message.reply_text(f"An error occurred in `cancel`: `{str(e)}`")
 
@@ -374,7 +383,7 @@ async def handle_speed(_, query: CallbackQuery):
         reply_markup = InlineKeyboardMarkup(button)
 
         await query.message.reply_text(
-            "Use this link to download and save the voice file to your phone storage:",
+            "Use this link to download and save the voice file to your phone storage or streaming online(in chrome):",
             reply_markup=reply_markup
         )
         
