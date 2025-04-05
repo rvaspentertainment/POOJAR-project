@@ -357,18 +357,27 @@ async def handle_speed(_, query: CallbackQuery):
      
         await query.message.edit("Sending voice...")
 
-        caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
-        log_msg = await query.message.reply_voice(voice=filepath, caption=caption)
-        fileName = quote_plus(get_name(log_msg))
-        
-        download = f"{URL}{str(log_msg.id)}/{fileName}?hash={get_hash(log_msg)}"
+        caption = (
+            f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n"
+            f"✍️ Characters: {len(text)}\n"
+            f"🎵 Speed: {speed.title()}"
+        )
+        await query.message.reply_voice(voice=filepath, caption=caption)
+        envs_url = await upload_to_envs(filepath)
+        if not envs_url:
+            return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
+
+        # Inline download button
         button = [[
-            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=download),
-            
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=envs_url)
         ]]
         reply_markup = InlineKeyboardMarkup(button)
-        await query.message.reply_text("You this link to download for phone storage", reply_markup=reply_markup)
-     
+
+        await query.message.reply_text(
+            "Use this link to download and save the voice file to your phone storage:",
+            reply_markup=reply_markup
+        )
+        
         data = await db.ud.find_one({"id": userid})            
 
         user_data1 = {
@@ -392,7 +401,20 @@ async def handle_speed(_, query: CallbackQuery):
 
 
 
-
+async def upload_to_envs(file_path):
+    try:
+        async with aiohttp.ClientSession() as session:
+            with open(file_path, 'rb') as f:
+                data = aiohttp.FormData()
+                data.add_field('file', f, filename=os.path.basename(file_path), content_type='application/octet-stream')
+                async with session.post("https://envs.sh", data=data) as response:
+                    if response.status == 200:
+                        return await response.text()
+                    else:
+                        return None
+    except Exception as e:
+        print("Upload error:", str(e))
+        return None
 
 
 
