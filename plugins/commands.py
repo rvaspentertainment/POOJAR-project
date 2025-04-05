@@ -127,6 +127,7 @@ gtts_languages = tts_langs()
 @Client.on_callback_query(filters.regex("cancel"))
 async def cancel_button(_, query: CallbackQuery):
     try:
+        
         user_data.pop(query.from_user.id, None)
         await query.message.edit("❌ Cancelled. Send me new text to start again.")
     except Exception as e:
@@ -157,7 +158,7 @@ async def handle_text(_, message: Message):
 @Client.on_callback_query(filters.regex("lang_yes"))
 async def confirm_lang(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         user_id = query.from_user.id
         if user_id not in user_data:
             return await query.answer("Session expired. Send new text.", show_alert=True)
@@ -175,7 +176,7 @@ async def confirm_lang(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("lang_no"))
 async def lang_no(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         rows = [
             [InlineKeyboardButton("🇮🇳 Indian", callback_data="region_indian")],
             [InlineKeyboardButton("🇪🇺 European", callback_data="region_europe")],
@@ -191,7 +192,7 @@ async def lang_no(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("region_indian"))
 async def region_indian(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         indian_langs = {
             'hi': 'Hindi', 'kn': 'Kannada', 'ta': 'Tamil', 'te': 'Telugu',
             'ml': 'Malayalam', 'gu': 'Gujarati', 'bn': 'Bengali', 'mr': 'Marathi',
@@ -206,7 +207,7 @@ async def region_indian(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("region_africa"))
 async def region_africa(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         african_langs = {
             'af': 'Afrikaans',
             'sw': 'Swahili',
@@ -226,7 +227,6 @@ async def region_africa(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("region_middleeast"))
 async def region_middleeast(_, query: CallbackQuery):
     try:
-        await query.message.delete()
         mid_langs = {
             'ar': 'Arabic',
             'fa': 'Persian (Farsi)',
@@ -243,7 +243,7 @@ async def region_middleeast(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("region_asia"))
 async def region_asia(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         asian_langs = {
             'ja': 'Japanese', 'zh-cn': 'Chinese (Simplified)', 'zh-tw': 'Chinese (Traditional)',
             'ko': 'Korean', 'id': 'Indonesian', 'th': 'Thai', 'vi': 'Vietnamese', 'ms': 'Malay'
@@ -257,7 +257,7 @@ async def region_asia(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex("region_europe"))
 async def region_europe(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         euro_langs = {
             'en': 'English', 'fr': 'French', 'de': 'German', 'es': 'Spanish',
             'it': 'Italian', 'ru': 'Russian', 'pt': 'Portuguese', 'pl': 'Polish',
@@ -301,7 +301,7 @@ def get_lang_buttons(page: int = 0):
 @Client.on_callback_query(filters.regex("region_all"))
 async def region_all(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         await query.message.reply("Select a language:", reply_markup=get_lang_buttons(0))
     except Exception as e:
         await query.message.reply_text(f"An error occurred in `region_all`: `{str(e)}`")
@@ -319,7 +319,7 @@ async def region_page(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex(r"langpick_(.+)"))
 async def handle_lang_pick(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         lang_code = query.data.split("_")[1]
         user_data[query.from_user.id]["lang"] = lang_code
 
@@ -337,7 +337,7 @@ async def handle_lang_pick(_, query: CallbackQuery):
 @Client.on_callback_query(filters.regex(r"speed_(slow|medium|fast)"))
 async def handle_speed(_, query: CallbackQuery):
     try:
-        await query.message.delete()
+        
         speed = query.data.split("_")[1]
         user_id = query.from_user.id
 
