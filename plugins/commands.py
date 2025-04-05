@@ -410,6 +410,7 @@ async def upload_to_envs(file_path):
                 async with session.post("https://envs.sh", data=data) as response:
                     if response.status == 200:
                         return await response.text()
+                        print(await response. text())
                     else:
                         return None
     except Exception as e:
