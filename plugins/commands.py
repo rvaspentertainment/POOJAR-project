@@ -423,16 +423,15 @@ async def upload_to_uguu(file_path):
                     if response.status == 200:
                         try:
                             data = await response.json()
-                            if isinstance(data, list) and len(data) > 0:
-                                return data[0].get("url")
+                            if isinstance(data, dict) and "files" in data:
+                                return data["files"][0].get("url")
                             else:
-                                print("Unexpected data format:", data)
+                                print("Unexpected JSON structure:", data)
                         except Exception as json_error:
                             print("JSON decode error:", str(json_error))
-                            return None
                     else:
                         print(f"Upload failed. HTTP Status: {response.status}")
-                        return None
     except Exception as e:
         print("Upload error:", str(e))
-        return None
+    
+    return None
