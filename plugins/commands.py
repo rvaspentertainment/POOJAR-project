@@ -114,7 +114,7 @@ async def start(client, message: Message):
         reply_markup = InlineKeyboardMarkup(button)
 
         await message.reply_text(
-            "Send me any text, and I'll convert it to speech using detected language(s)!/n/nPowered by PP Bots and GTtS",
+            "Send me any text, and I'll convert it to speech using detected language(s)!\n\nPowered by PP Bots and GTtS",
             reply_markup=reply_markup
         )
     except Exception as e:
