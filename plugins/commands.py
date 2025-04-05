@@ -61,8 +61,8 @@ async def user_details(client, message):
             # Command without user_id argument: /user_details
             user_id = message.from_user.id
             
-        user_data = await db.get_user_details(user_id)
-        
+        user_data = await db.ud.find_one({"id": userid})            
+
         if user_data:
             details_message = (
                 f"User Details:\n\n"
