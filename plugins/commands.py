@@ -365,8 +365,6 @@ async def handle_speed(_, query: CallbackQuery):
         button = [[
             InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=download),
             
-        ],[
-            InlineKeyboardButton("• ᴡᴀᴛᴄʜ ɪɴ ᴡᴇʙ ᴀᴘᴘ •", web_app=WebAppInfo(url=stream))
         ]]
         reply_markup = InlineKeyboardMarkup(button)
         await query.message.reply_text("You this link to download for phone storage", reply_markup=reply_markup)
