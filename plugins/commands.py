@@ -363,7 +363,7 @@ async def handle_speed(_, query: CallbackQuery):
             f"🎵 Speed: {speed.title()}"
         )
         await query.message.reply_voice(voice=filepath, caption=caption)
-        envs_url = await upload_to_envs(filepath)
+        envs_url = await upload_to_fileio(filepath)
         if not envs_url:
             return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
 
@@ -401,21 +401,19 @@ async def handle_speed(_, query: CallbackQuery):
 
 
 
-async def upload_to_envs(file_path):
+async def upload_to_fileio(file_path):
     try:
         async with aiohttp.ClientSession() as session:
             with open(file_path, 'rb') as f:
-                data = aiohttp.FormData()
-                data.add_field('file', f, filename=os.path.basename(file_path), content_type='application/octet-stream')
-                async with session.post("https://envs.sh", data=data) as response:
-                    if response.status == 200:
-                        return await response.text()
-                    else:
-                        return None
+                data = {'expires': '20m'}  # expires in 10 minutes
+                files = {'file': f}
+                async with session.post("https://file.io", data=data, timeout=60) as resp:
+                    json_data = await resp.json()
+                    if json_data.get("success"):
+                        return json_data["link"]
     except Exception as e:
-        print("Upload error:", str(e))
-        return None
-
+        print(f"file.io upload error: {e}")
+    return None
 
 
 
