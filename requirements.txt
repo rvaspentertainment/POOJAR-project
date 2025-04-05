@@ -20,8 +20,6 @@ itsdangerous==2.0.1
 wikipedia-api
 transformers
 torch
-pymongo
-pyrogram
-tgcrypto
-python-dotenv
+
+
 schedule
