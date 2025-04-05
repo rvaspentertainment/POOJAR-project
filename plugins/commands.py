@@ -408,11 +408,24 @@ async def upload_to_uguu(file_path):
     try:
         async with aiohttp.ClientSession() as session:
             with open(file_path, 'rb') as f:
-                data = aiohttp.FormData()
-                data.add_field('files[]', f, filename=os.path.basename(file_path))
-                async with session.post("https://uguu.se/upload.php", data=data) as response:
-                    result = await response.json()
-                    return result[0]['url'] if response.status == 200 else None
+                form = aiohttp.FormData()
+                form.add_field(
+                    'files[]',
+                    f,
+                    filename=os.path.basename(file_path),
+                    content_type='application/octet-stream'
+                )
+
+                async with session.post("https://uguu.se/upload.php", data=form) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if isinstance(data, list) and data and 'url' in data[0]:
+                            return data[0]['url']
+                        else:
+                            print("Unexpected response format:", data)
+                    else:
+                        print("HTTP Error:", response.status)
     except Exception as e:
         print("Upload error:", str(e))
-        return None
+    
+    return None
