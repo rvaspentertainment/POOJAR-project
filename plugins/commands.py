@@ -363,13 +363,13 @@ async def handle_speed(_, query: CallbackQuery):
             f"🎵 Speed: {speed.title()}"
         )
         await query.message.reply_voice(voice=filepath, caption=caption)
-        envs_url = await upload_to_envs(filepath)
+        envs_url = await upload_to_transfersh(filepath)
         if not envs_url:
             return await query.message.reply_text("❌ Failed to upload voice file. Please try again.")
 
         # Inline download button
         button = [[
-            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=f"https//:{envs_url}")
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=envs_url)
         ]]
         reply_markup = InlineKeyboardMarkup(button)
 
@@ -401,27 +401,27 @@ async def handle_speed(_, query: CallbackQuery):
 
 
 
-async def upload_to_envs(file_path):
+import aiohttp
+import os
+
+async def upload_to_transfersh(file_path):
     try:
         async with aiohttp.ClientSession() as session:
             with open(file_path, 'rb') as f:
-                data = aiohttp.FormData()
-                data.add_field('file', f, filename=os.path.basename(file_path), content_type='application/octet-stream')
-                async with session.post("https://envs.sh", data=data) as response:
+                filename = os.path.basename(file_path)
+                upload_url = f"https://transfer.sh/{filename}"
+                headers = {
+                    'Max-Downloads': '1',      # Optional: limit number of downloads
+                    'Max-Days': '1'            # Optional: limit duration (in days)
+                }
+                async with session.put(upload_url, data=f, headers=headers) as response:
                     if response.status == 200:
-                        print(await response. text())
-                        return await response.text()
-                        
+                        download_link = await response.text()
+                        print(download_link)
+                        return download_link.strip()
                     else:
+                        print("Upload failed with status:", response.status)
                         return None
     except Exception as e:
         print("Upload error:", str(e))
         return None
-
-
-
-
-
-
-
-
