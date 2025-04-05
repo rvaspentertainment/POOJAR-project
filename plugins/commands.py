@@ -108,7 +108,8 @@ async def start(client, message: Message):
             await db.ud.update_one({"id": user_data["id"]}, {"$set": user_data}, upsert=True)
             
         button = [[
-            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=envs_url)
+            InlineKeyboardButton("PP Bots", url="https://t.me/pp_bots"),
+            InlineKeyboardButton("Support", url="https://t.me/+39yIpl-sKcU1NDU1")
         ]]
         reply_markup = InlineKeyboardMarkup(button)
 
