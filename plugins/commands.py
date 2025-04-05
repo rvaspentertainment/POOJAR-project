@@ -358,8 +358,7 @@ async def handle_speed(_, query: CallbackQuery):
         await query.message.edit("Sending voice...")
 
         caption = f"🌐 Language: {gtts_languages.get(lang, lang)} ({lang})\n✍️ Characters: {len(text)}\n🎵 Speed: {speed.title()}"
-        await query.message.reply_voice(voice=filepath, caption=caption)
-        log_msg = await bot.send_voice(-1002217432697, voice=filepath, caption=caption)
+        log_msg = await query.message.reply_voice(voice=filepath, caption=caption)
         fileName = quote_plus(get_name(log_msg))
         
         download = f"{URL}{str(log_msg.id)}/{fileName}?hash={get_hash(log_msg)}"
