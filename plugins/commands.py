@@ -369,7 +369,7 @@ async def handle_speed(_, query: CallbackQuery):
 
         # Inline download button
         button = [[
-            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=f"http//:{envs_url}")
+            InlineKeyboardButton("• ᴅᴏᴡɴʟᴏᴀᴅ •", url=f"https//:{envs_url}")
         ]]
         reply_markup = InlineKeyboardMarkup(button)
 
