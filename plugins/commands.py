@@ -415,8 +415,8 @@ async def ask_watermark_details(client, query, user_id, watermark_type):
 
         if watermark_type in ["text", "both"]:
             response = await client.ask(user_id, "Send watermark text:")
-            response1 = f"{response}☆     ☆"
-            watermark_data["text"] = response1.text or "Poojar Project"
+            response1 = f"{response.text}☆     ☆"
+            watermark_data["text"] = response1 or "Poojar Project"
             response.delete()
         
 
