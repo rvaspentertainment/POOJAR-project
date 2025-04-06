@@ -102,7 +102,7 @@ async def total_used(client, message):
         await message.reply_document(file_path)
 
         # Summary reply
-        await message.reply(f"Total TtS from 05/04/2025 = {total_files}\n\nTotal Characters = {total_verified}")
+        await message.reply(f"Total TtS from 05/04/2025 = {total_files}\n\nTotal Characters = {total_verified}\n\nTotal users = {total_users}")
 
     except Exception as e:
         await message.reply_text(f"An error occurred: {e}")
