@@ -60,7 +60,7 @@ def formate_file_name(file_name):
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ0
-@Client.on_message(filters.command("total_used")
+@Client.on_message(filters.command("total_used"))
 async def total_used(client, message):
     try:
         user_data = await self.ud.find({}).to_list(None) 
