@@ -60,7 +60,53 @@ def formate_file_name(file_name):
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ0
+@Client.on_message(filters.command("total_used") & filters.user(ADMINS))
+async def total_used(client, message):
+    try:
+        user_data = await self.ud.find({}).to_list(None) 
+    
 
+        # Aggregating totals
+        total_users = sum(user.get('id', 0) for user in user_data)
+        total_files = sum(user.get('mp3', 0) for user in user_data)
+        total_verified = sum(user.get('char', 0) for user in user_data)
+
+        # Finding users with maximum counts
+        most_file_user = max(user_data, key=lambda x: x.get('mp3', 0))
+        most_verified_user = max(user_data, key=lambda x: x.get('char', 0))
+        
+        # Sorting and getting users for each category
+        top_files_list = sorted(user_data, key=lambda x: x.get('mp3', 0), reverse=True)
+        top_verified_list = sorted(user_data, key=lambda x: x.get('char', 0), reverse=True)
+       
+        # Creating a document with the users
+        document_content = "Top Users Report\n\n"
+
+        
+        document_content += "\nUsers Sorted by Most TtS converted:\n"
+        for user in top_files_list:
+            document_content += f"User ID: {user.get('id')}, Files: {user.get('mp3', 0)}\n"
+
+        document_content += "Users Sorted by Most Characters:\n"
+        for user in top_verified_list:
+            document_content += f"User ID: {user.get('id')}, Verified: {user.get('char', 0)}\n"
+
+        # Ensure the directory exists or choose a path you have write access to
+        file_path = "top_users_report.txt"
+
+        # Write the document content to a text file
+        with open(file_path, "w") as file:
+            file.write(document_content)
+
+        # Send the document to the user
+        await message.reply_document(file_path)
+
+        # Summary reply
+        await message.reply(f"Total TtS from 05/04/2025 = {total_files}\n\nTotal Characters = {total_verified}")
+
+    except Exception as e:
+        await message.reply_text(f"An error occurred: {e}")
+        
 @Client.on_message(filters.command("user_details"))
 async def user_details(client, message):
     try:
