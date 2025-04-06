@@ -63,7 +63,7 @@ def formate_file_name(file_name):
 @Client.on_message(filters.command("total_used"))
 async def total_used(client, message):
     try:
-        user_data = await self.ud.find({}).to_list(None) 
+        user_data = await db.ud.find({}).to_list(None) 
     
 
         # Aggregating totals
