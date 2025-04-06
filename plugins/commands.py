@@ -480,10 +480,10 @@ async def watermark_pdf(client, query, user_id, position, watermark_data):
                 writer.write(f_out)
 
             await client.send_document(user_id, document=output_path)
-        for file_path in user_pdfs.get(message.from_user.id, []):
+        for file_path in user_pdfs.get(user_id, []):
             if os.path.exists(file_path):
                 os.remove(file_path)
-        user_pdfs[message.from_user.id] = []
+        user_pdfs[user_id] = []
     except Exception as e:
         await query.message.edit_text(f"Error during watermarking: {e}")
 
@@ -602,10 +602,10 @@ async def protect_pdf(client, query, user_id):
 
 
 
-            for file_path in user_pdfs.get(message.from_user.id, []):
+            for file_path in user_pdfs.get(user_id, []):
                 if os.path.exists(file_path):
                     os.remove(file_path)
-            user_pdfs[message.from_user.id] = []
+            user_pdfs[user_id] = []
             
             os.remove(output_pdf_path)  # Corrected variable name
 
