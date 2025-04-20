@@ -42,7 +42,6 @@ from TechVJ.server import web_server
 
 import asyncio
 import aiohttp
-from pyromod import listen
 from pyrogram import idle
 from plugins.clone import restart_bots
 from TechVJ.bot import StreamBot
