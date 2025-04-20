@@ -66,7 +66,7 @@ async def keep_alive_ping():
     while True:
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get("https://mature-phillida-rvasp-file-store-a53f8c09.koyeb.app/") as resp:  # Replace with your real app URL
+                async with session.get("https://yummy-ethelyn-kttmh-movies-bot-0f50df78.koyeb.app/") as resp:  # Replace with your real app URL
                     print(f"Pinged self: {resp.status}")
         except Exception as e:
             print(f"Ping error: {e}")
