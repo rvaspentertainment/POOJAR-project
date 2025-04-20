@@ -51,7 +51,15 @@ from TechVJ.bot.clients import initialize_clients
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
-
+async def keep_alive_ping():
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get("https://yummy-ethelyn-kttmh-movies-bot-0f50df78.koyeb.app/") as resp:  # Replace with your real app URL
+                    print(f"Pinged self: {resp.status}")
+        except Exception as e:
+            print(f"Ping error: {e}")
+        await asyncio.sleep(60)
 
 ppath = "plugins/*.py"
 files = glob.glob(ppath)
@@ -69,6 +77,8 @@ async def start():
     bot_info = await StreamBot.get_me()
     StreamBot.username = bot_info.username
     await initialize_clients()
+    
+    # Load all plugin files
     for name in files:
         with open(name) as a:
             patt = Path(a.name)
@@ -80,20 +90,28 @@ async def start():
             spec.loader.exec_module(load)
             sys.modules["plugins." + plugin_name] = load
             print("Tech VJ Imported => " + plugin_name)
+
+    # Start ping tasks
+    asyncio.create_task(keep_alive_ping())  # <-- Add this line
+
     if ON_HEROKU:
         asyncio.create_task(ping_server())
-    me = await StreamBot.get_me()
+
     tz = pytz.timezone('Asia/Kolkata')
     today = date.today()
     now = datetime.now(tz)
     time = now.strftime("%H:%M:%S %p")
+
     app = web.AppRunner(await web_server())
-    await StreamBot.send_message(chat_id=LOG_CHANNEL, text=script.RESTART_TXT.format(today, time))
     await app.setup()
     bind_address = "0.0.0.0"
     await web.TCPSite(app, bind_address, PORT).start()
+
+    await StreamBot.send_message(chat_id=LOG_CHANNEL, text=script.RESTART_TXT.format(today, time))
+
     if CLONE_MODE == True:
         await restart_bots()
+
     print("Bot Started Powered By @VJ_Botz")
     await idle()
 
