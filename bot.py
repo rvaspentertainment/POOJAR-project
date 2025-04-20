@@ -62,15 +62,6 @@ loop = asyncio.get_event_loop()
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
-async def keep_alive_ping():
-    while True:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://yummy-ethelyn-kttmh-movies-bot-0f50df78.koyeb.app/") as resp:  # Replace with your real app URL
-                    print(f"Pinged self: {resp.status}")
-        except Exception as e:
-            print(f"Ping error: {e}")
-        await asyncio.sleep(60)
 
 async def start():
     print('\n')
