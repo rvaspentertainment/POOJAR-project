@@ -52,9 +52,7 @@ def formate_file_name(file_name):
 # Ask Doubt on telegram @KingVJ0
 
 
-@Client.on_message(filters.command("start") & filters.incoming)
-async def start(client, message):
-    await message.reply(hi)
+
 
 
 
