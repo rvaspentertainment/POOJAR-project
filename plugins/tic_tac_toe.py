@@ -36,25 +36,26 @@ async def start(client, message: Message):
 
 @Client.on_callback_query(filters.regex("^mode\\|"))
 async def mode_select(client, callback_query: CallbackQuery):
-    data = callback_query.data.split("|")
-    mode = data[1]
-
-    if mode == "multi":
-        await callback_query.message.reply("Send your partner's user ID to invite (example: 123456789).")
-        return
-
-    game_id = get_game_id(callback_query.from_user.id)
-    games[game_id] = {
-        "game": TicTacToe(),
-        "mode": mode,
-        "turn": "X",
-        "player1": callback_query.from_user.id,
-        "player2": None,
-    }
-    await callback_query.message.reply(
-        "Game Started!\nYou are X",
-        reply_markup=build_board(games[game_id]["game"].board, mode, game_id)
-    )
+    try:
+        data = callback_query.data.split("|")
+        mode = data[1]
+        if mode == "multi":
+            await callback_query.message.reply("Send your partner's user ID to invite (example: 123456789).")
+            return
+        game_id = get_game_id(callback_query.from_user.id)
+        games[game_id] = {
+            "game": TicTacToe(),
+            "mode": mode,
+            "turn": "X",
+            "player1": callback_query.from_user.id,
+            "player2": None,
+        }
+        await callback_query.message.reply(
+            "Game Started!\nYou are X",
+            reply_markup=build_board(games[game_id]["game"].board, mode, game_id)
+        )
+    except Exception as e:
+        print("Error:", str(e))
 
 @Client.on_message(filters.text & filters.reply & filters.regex("^[0-9]+$"))
 async def receive_invite(client, message: Message):
